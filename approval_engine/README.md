@@ -22,3 +22,17 @@ class PurchaseOrder(models.Model):
 ```
 
 Then add a button in the form view to submit for approval.
+
+
+## Where to find it in Odoo
+1. Go to **Apps** and install **Approval Engine**.
+2. Open the app launcher (home screen): you will see **Approval Engine**.
+3. Inside the app:
+   - **Requests**: operational approval requests.
+   - **Templates** (manager): configure model-based approval flows.
+
+## Basic setup
+1. Open **Approval Engine > Templates**.
+2. Create a template and select target **Model** (e.g. `purchase.order`).
+3. Add one or more **Steps** with approver group and rule.
+4. (Optional) set `on_approved_method` / `on_rejected_method` to call business methods.
