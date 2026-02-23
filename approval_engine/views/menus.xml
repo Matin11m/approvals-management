@@ -5,7 +5,7 @@
         <field name="view_mode">list,form</field>
     </record>
 
-    <menuitem id="menu_approval_engine_root" name="Approval Engine" sequence="10" groups="approval_engine.group_approval_engine_user"/>
+    <menuitem id="menu_approval_engine_root" name="Approval Engine" sequence="10"/>
 
     <menuitem
         id="menu_approval_engine_requests"
@@ -13,7 +13,7 @@
         parent="menu_approval_engine_root"
         action="approval_engine.action_approval_engine_requests"
         sequence="10"
-        groups="approval_engine.group_approval_engine_user"
+       
     />
 
     <menuitem
@@ -22,7 +22,7 @@
         parent="menu_approval_engine_root"
         action="approval_engine.action_approval_engine_forms"
         sequence="15"
-        groups="approval_engine.group_approval_engine_manager"
+       
     />
 
     <menuitem
@@ -31,6 +31,6 @@
         parent="menu_approval_engine_root"
         action="approval_engine.action_approval_engine_templates"
         sequence="20"
-        groups="approval_engine.group_approval_engine_manager"
+       
     />
 </odoo>

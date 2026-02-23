@@ -105,13 +105,10 @@
 
 ---
 
-## 5) امنیت و دسترسی
-- گروه‌ها:
-  - `Approval Engine User`
-  - `Approval Engine Manager`
-- manager شامل user است.
-- کاربران داخلی (`base.group_user`) به گروه user نگاشت شده‌اند تا اپ قابل مشاهده باشد.
-- ACL جداگانه برای template/step/binding/request/log تعریف شده است.
+## 5) امنیت و دسترسی (وضعیت فعلی)
+- در فاز فعلی، policyهای سفارشی ACL/Group عمداً از بارگذاری ماژول حذف شده‌اند تا نصب/توسعه ساده‌تر باشد.
+- یعنی بخش hardening امنیتی به فاز بعد موکول شده است.
+- در فاز production باید ACL/Record Rules دقیق تعریف و فعال شوند.
 
 ---
 

@@ -51,3 +51,8 @@ class PurchaseOrder(models.Model):
 ## Documentation
 - Technical spec (FA): `docs/approval_engine_technical_spec_fa.md`
 - User guide (FA): `docs/approval_engine_user_guide_fa.md`
+
+
+## Current Access-Control Policy
+At this stage, custom ACL/groups are intentionally not loaded to keep module setup simple during early product maturation.
+Define and enable security policies in a later hardening phase.
