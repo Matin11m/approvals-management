@@ -1,0 +1,21 @@
+<odoo>
+    <menuitem id="menu_approval_engine_root" name="Approval Engine" sequence="10" groups="approval_engine.group_approval_engine_user"/>
+
+    <menuitem
+        id="menu_approval_engine_requests"
+        name="Requests"
+        parent="menu_approval_engine_root"
+        action="approval_engine.action_approval_engine_requests"
+        sequence="10"
+        groups="approval_engine.group_approval_engine_user"
+    />
+
+    <menuitem
+        id="menu_approval_engine_templates"
+        name="Templates"
+        parent="menu_approval_engine_root"
+        action="approval_engine.action_approval_engine_templates"
+        sequence="20"
+        groups="approval_engine.group_approval_engine_manager"
+    />
+</odoo>

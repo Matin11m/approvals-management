@@ -1,0 +1,67 @@
+<odoo>
+    <record id="view_approval_engine_template_list" model="ir.ui.view">
+        <field name="name">approval.engine.template.list</field>
+        <field name="model">approval.engine.template</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="model_id"/>
+                <field name="rule_type"/>
+                <field name="active"/>
+                <field name="company_id"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_approval_engine_template_form" model="ir.ui.view">
+        <field name="name">approval.engine.template.form</field>
+        <field name="model">approval.engine.template</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="model_id"/>
+                            <field name="company_id"/>
+                            <field name="sequence"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="rule_type"/>
+                            <field name="rule_domain" attrs="{'invisible': [('rule_type', '!=', 'domain')], 'required': [('rule_type', '=', 'domain')]}"/>
+                            <field name="rule_python" widget="text" attrs="{'invisible': [('rule_type', '!=', 'python')], 'required': [('rule_type', '=', 'python')]}"/>
+                            <field name="on_approved_method"/>
+                            <field name="on_rejected_method"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Steps">
+                            <field name="step_ids">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="approver_group_id"/>
+                                    <field name="min_approvals"/>
+                                    <field name="require_all_group_users"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Description">
+                            <field name="description"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_approval_engine_templates" model="ir.actions.act_window">
+        <field name="name">Approval Templates</field>
+        <field name="res_model">approval.engine.template</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>
