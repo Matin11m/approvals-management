@@ -16,6 +16,7 @@ class ApprovalTemplate(models.Model):
     model_id = fields.Many2one(
         "ir.model",
         required=True,
+        ondelete="cascade",
         domain="[(\"transient\", \"=\", False)]",
         tracking=True,
     )
