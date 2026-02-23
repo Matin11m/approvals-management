@@ -46,3 +46,8 @@ Example:
 class PurchaseOrder(models.Model):
     _inherit = ["purchase.order", "approval.engine.mixin"]
 ```
+
+
+## Documentation
+- Technical spec (FA): `docs/approval_engine_technical_spec_fa.md`
+- User guide (FA): `docs/approval_engine_user_guide_fa.md`
