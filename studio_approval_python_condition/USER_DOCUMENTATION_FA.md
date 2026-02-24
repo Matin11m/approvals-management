@@ -1,43 +1,73 @@
-# راهنمای کاربر (فارسی) — شرط پایتون در Studio Approval
+# راهنمای کاربر (فارسی) — تنظیم Approver و Notify با Python
 
-## این قابلیت چیست؟
-در فرم Rule تایید، علاوه بر Domain می‌توانید یک شرط پایتونی هم بنویسید تا دقیق‌تر مشخص کنید Rule چه زمانی اعمال شود.
+## این قابلیت چه کاری می‌کند؟
+در Rule تایید، می‌توانید با کد پایتون مشخص کنید:
+1. چه کاربرانی **Approver** باشند.
+2. چه کاربرانی **Notify** دریافت کنند.
 
-## کجا این فیلدها را می‌بینم؟
+این دو کاملاً جدا از هم هستند.
+
+---
+
+## محل فیلدها
 مسیر: **Studio > Approvals > Rule Form**
 
-بعد از فیلد Domain دو بخش جدید دارید:
-1. **Python Guide** (فقط خواندنی)
-2. **Python Condition** (قابل ویرایش)
+بعد از Domain این فیلدها را می‌بینید:
+- `Python Guide` (readonly)
+- `Approver Python Condition` (`python_code`)
+- `Notify Approver Python Condition` (`notify_python_code`)
+
+---
 
 ## متغیرهای قابل استفاده در کد
-- `env`: محیط Odoo
-- `user`: کاربر فعلی
-- `record`: رکورد فعلی
-- `rule`: Rule فعلی
-- `result`: خروجی بولی (باید True/False شود)
+- `env`
+- `user`
+- `record`
+- `rule`
+- `result`
 
-## نمونه‌های آماده
+> باید خروجی را داخل `result` قرار دهید.
+
+---
+
+## خروجی قابل قبول برای `result`
+- `res.users` recordset
+- یک id کاربر (عدد)
+- لیست/tuple/set از id کاربران
+- لیستی از رکوردهای `res.users`
+
+نمونه‌های معتبر:
 ```python
-result = record.amount_total > 10000
+result = record.user_id
 ```
 
 ```python
-result = user.has_group('sales_team.group_sale_manager')
+result = record.team_id.member_ids
 ```
 
 ```python
-result = record.company_id == user.company_id
+result = [env.user.id]
 ```
+
+---
+
+## مثال عملی
+### 1) Approver شرطی
+```python
+# تاییدکننده = مدیر فروش سند
+result = record.user_id
+```
+
+### 2) Notify شرطی
+```python
+# نوتیفای به اعضای تیم فروش
+result = record.team_id.member_ids
+```
+
+---
 
 ## نکات مهم
-- اگر `python_code` خالی باشد، نتیجه پایتون به‌صورت پیش‌فرض True است.
-- اگر Domain و Python هر دو پر باشند، **هر دو باید برقرار باشند**.
-- در صورت syntax اشتباه، Rule ذخیره نمی‌شود.
-- در صورت خطای runtime، پیام خطای کاربرپسند نمایش داده می‌شود.
-
-## روش پیشنهادی استفاده
-1. ابتدا Domain را ساده تنظیم کنید.
-2. شرط پایتون را کوتاه و شفاف بنویسید.
-3. همیشه `result = ...` را صریح ست کنید.
-4. قبل از استفاده در Production، سناریوی تست را کامل اجرا کنید.
+- اگر `python_code` خالی باشد، سیستم از `Approvers` عادی Rule استفاده می‌کند.
+- اگر `notify_python_code` خالی باشد، سیستم از `Users to Notify` عادی Rule استفاده می‌کند.
+- خطای syntax باعث می‌شود Rule ذخیره نشود.
+- خروجی نامعتبر (مثلاً string به‌جای user/id) خطای کاربرپسند می‌دهد.

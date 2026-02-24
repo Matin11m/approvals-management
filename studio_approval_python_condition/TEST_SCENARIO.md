@@ -1,137 +1,178 @@
-# سناریوی تست کامل (فارسی) — ماژول Studio Approval Python Condition
+# سناریوی تست کامل (فارسی) — منطق جدید Dynamic Approver/Notify
 
 ## 1) هدف تست
-اعتبارسنجی کامل این قابلیت که:
-- فیلد راهنمای readonly برای نوشتن شرط پایتون در فرم Rule نمایش داده شود.
-- شرط پایتونی (`python_code`) در کنار Domain روی اعمال/عدم اعمال Rule اثر بگذارد.
-- خطاهای syntax و runtime به‌درستی مدیریت شوند.
+اعتبارسنجی کامل اینکه:
+1. با `python_code` بتوان approverها را داینامیک تعیین کرد.
+2. با `notify_python_code` بتوان دریافت‌کنندگان notify را داینامیک تعیین کرد.
+3. هر دو منطق مستقل از هم کار کنند.
+4. fallback به فیلدهای استاندارد (`approver_ids` و `users_to_notify`) برقرار باشد.
 
 ---
 
 ## 2) پیش‌نیازها
-1. Odoo بالا باشد.
+1. Odoo در حال اجرا.
 2. ماژول‌های `web_studio` و `studio_approval_python_condition` نصب باشند.
-3. یک مدل دارای Approval فعال داشته باشید (پیشنهاد: Sales Order / `sale.order`).
-4. دو کاربر تستی داشته باشید:
-   - `Requester` (ایجاد/تایید سند)
-   - `Approver` (تاییدکننده)
+3. مدل تست: `sale.order`.
+4. کاربران تست:
+   - `Requester`
+   - `Approver A`
+   - `Approver B`
+   - `Notify A`
+   - `Notify B`
+5. روی Sales Team اعضا طوری تنظیم شوند که `record.team_id.member_ids` قابل استفاده باشد.
 
 ---
 
 ## 3) شناسنامه فیلدها (Field-by-Field)
 
-| نام فیلد | نوع | محل نمایش | مقدار نمونه | اجباری | توضیح |
-|---|---|---|---|---|---|
-| `domain` | Char (domain string) | فرم Rule | `[("company_id", "=", user.company_id.id)]` | خیر | فیلتر اولیه رکوردها. |
-| `python_code_guide` | Text (readonly, compute) | فرم Rule | راهنمای متغیرهای قابل استفاده | بله (سیستمی) | فقط جهت نمایش راهنما و قابل ویرایش نیست. |
-| `python_code` | Text | فرم Rule | `result = record.amount_total > 10000` | خیر | کد پایتون برای تعیین نهایی اعمال Rule. |
-| `result` | Boolean (runtime variable) | داخل کد پایتون | `True` / `False` | بله (در منطق) | خروجی باید در این متغیر ست شود؛ پیش‌فرض `True` است. |
+| نام فیلد | نوع | ورودی/خروجی | مثال | نقش |
+|---|---|---|---|---|
+| `domain` | Char | ورودی | `[('company_id', '=', user.company_id.id)]` | فیلتر اولیه رکورد Rule |
+| `python_code_guide` | Text readonly | خروجی نمایشی | راهنما | فقط توضیح متغیرها و نمونه |
+| `python_code` | Text | ورودی کد | `result = record.user_id` | محاسبه Approverهای داینامیک |
+| `notify_python_code` | Text | ورودی کد | `result = record.team_id.member_ids` | محاسبه Notifyهای داینامیک |
+| `result` | متغیر runtime | خروجی کد | user/user_ids | باید کاربر/شناسه کاربر برگرداند |
 
-متغیرهای قابل استفاده در `python_code`:
-- `env`: محیط Odoo
-- `user`: کاربر جاری
-- `record`: رکورد جاری
-- `rule`: قانون تایید جاری
-- `result`: خروجی بولی
+### خروجی معتبر `result`
+- `res.users`
+- `int` (user id)
+- `list/tuple/set[int]`
+- `list` از `res.users`
 
 ---
 
 ## 4) سناریوهای تست گام‌به‌گام
 
-## سناریو A — بررسی نمایش UI و مرتب بودن فرم
+## سناریو A — نمایش UI
 ### مراحل
-1. مسیر **Studio > Approvals** را باز کنید.
-2. یک Rule جدید بسازید یا یک Rule موجود را باز کنید.
-3. بعد از فیلد Domain، بلوک **Python Condition** را بررسی کنید.
-4. چک کنید فیلد **Python Guide** فقط readonly باشد.
-5. چک کنید فیلد **Python Condition** قابل ویرایش باشد.
+1. مسیر **Studio > Approvals > Rule Form**.
+2. بررسی کنید بعد از `domain` سه فیلد نمایش داده شود:
+   - `Python Guide`
+   - `Approver Python Condition`
+   - `Notify Approver Python Condition`
+3. readonly بودن Guide و editable بودن دو textbox را بررسی کنید.
 
 ### انتظار
-- نمایش فرم منظم باشد (Separator + گروه یکپارچه).
-- راهنما قابل مشاهده و غیرقابل ویرایش باشد.
-- فیلد شرط پایتون قابل ویرایش باشد.
+- هر سه فیلد با ترتیب درست نمایش داده شوند.
+- Guide غیرقابل ویرایش باشد.
 
 ---
 
-## سناریو B — اعمال Rule فقط با Python Condition
+## سناریو B — محاسبه Approver با python_code
 ### تنظیم Rule
-- `domain`: خالی
 - `python_code`:
 ```python
-result = record.amount_total > 10000
+result = record.user_id
+```
+- `notify_python_code`: خالی
+
+### مراحل
+1. یک SO با Salesperson = `Approver A` بسازید.
+2. تایید سند را trigger کنید.
+3. چک کنید approval request برای `Approver A` ساخته شود.
+4. SO جدید با Salesperson = `Approver B` بسازید.
+5. تایید سند را trigger کنید.
+6. چک کنید approval request برای `Approver B` ساخته شود.
+
+### انتظار
+- دریافت‌کننده approval request با تغییر رکورد تغییر کند (داینامیک per-record).
+
+---
+
+## سناریو C — محاسبه Notify با notify_python_code
+### تنظیم Rule
+- `python_code`: خالی (یا ثابت)
+- `notify_python_code`:
+```python
+result = record.team_id.member_ids
 ```
 
 ### مراحل
-1. یک سفارش فروش با مبلغ `9000` بسازید.
-2. عملیات تایید/Confirm را بزنید.
-3. یک سفارش فروش با مبلغ `15000` بسازید.
-4. عملیات تایید/Confirm را بزنید.
+1. یک سند را approve/reject کنید.
+2. پیام notify ثبت‌شده روی chatter را بررسی کنید.
+3. partnerهای پیام را با اعضای `team_id.member_ids` مقایسه کنید.
 
 ### انتظار
-- سفارش `9000`: این Rule اعمال نشود.
-- سفارش `15000`: این Rule اعمال شود و فرآیند approval شروع شود.
+- notify گیرنده‌ها از کد `notify_python_code` محاسبه شوند.
+- وابسته به رکورد باشند.
 
 ---
 
-## سناریو C — اعتبارسنجی Syntax
+## سناریو D — استقلال دو منطق Approver و Notify
 ### تنظیم Rule
-- `python_code` نامعتبر:
+- `python_code`:
 ```python
-result = (record.amount_total > 10000
+result = record.user_id
+```
+- `notify_python_code`:
+```python
+result = [env.user.id]
+```
+
+### مراحل
+1. عملیات approval را اجرا کنید.
+2. بررسی کنید approver = `record.user_id`.
+3. بررسی کنید notify recipient = کاربر جاری (`env.user`) باشد.
+
+### انتظار
+- approver و notify مستقل از هم resolve شوند.
+
+---
+
+## سناریو E — Fallback رفتار قدیمی
+### تنظیم Rule
+- `python_code`: خالی
+- `notify_python_code`: خالی
+- `approver_ids` و `users_to_notify` را دستی تنظیم کنید.
+
+### مراحل
+1. flow approval را اجرا کنید.
+2. بررسی کنید recipients از فیلدهای استاندارد گرفته شوند.
+
+### انتظار
+- بدون کد پایتون، رفتار قبلی دقیقاً حفظ شود.
+
+---
+
+## سناریو F — خروجی نامعتبر در result
+### تنظیم Rule
+- `python_code`:
+```python
+result = "invalid"
+```
+
+### مراحل
+1. trigger approval انجام دهید.
+
+### انتظار
+- خطای `UserError` کاربرپسند به دلیل نوع خروجی نامعتبر نمایش داده شود.
+
+---
+
+## سناریو G — خطای Syntax
+### تنظیم Rule
+- `notify_python_code` نامعتبر:
+```python
+result = [env.user.id
 ```
 
 ### مراحل
 1. Rule را ذخیره کنید.
 
 ### انتظار
-- خطای Validation نمایش داده شود.
-- Rule با کد نامعتبر ذخیره نشود.
-
----
-
-## سناریو D — ترکیب Domain + Python
-### تنظیم Rule
-- `domain`: محدود به شرکت فعلی
-- `python_code`:
-```python
-result = user.has_group('sales_team.group_sale_manager')
-```
-
-### مراحل
-1. با کاربر مدیر فروش روی رکوردی در همان شرکت تست کنید.
-2. با کاربر غیرمدیر روی همان رکورد تست کنید.
-
-### انتظار
-- Rule فقط وقتی اعمال شود که **هر دو شرط** Domain و Python برقرار باشند.
-
----
-
-## سناریو E — خطای Runtime
-### تنظیم Rule
-- `python_code`:
-```python
-result = 1 / 0
-```
-
-### مراحل
-1. عملیاتی را اجرا کنید که Approval Check را trigger کند.
-
-### انتظار
-- `UserError` کاربرپسند نمایش داده شود.
-- پیام خطا مشخص کند شرط پایتون Rule خطا دارد.
+- خطای validation syntax نمایش داده شود و ذخیره انجام نشود.
 
 ---
 
 ## 5) چک‌لیست رگرسیون
-- Ruleهای قدیمی که فقط Domain دارند، بدون تغییر کار کنند.
-- Ruleهای بدون Python Condition رفتار قبلی را حفظ کنند.
-- ترتیب notification/order در approvalها به‌هم نریزد.
-- عملیات revoke/approve/request در مسیرهای اصلی همچنان صحیح بمانند.
+- Domain-only ruleها سالم باشند.
+- notification order و step sequencing به‌هم نریزد.
+- revoke/approve/request flow دچار رگرسیون نشود.
+- Ruleهای بدون کد پایتون همچنان کار کنند.
 
 ---
 
-## 6) خروجی مورد انتظار نهایی
-اگر تمام سناریوها پاس شوند:
-- قابلیت شرط پایتونی قابل استفاده و قابل اتکا است.
-- UI برای کاربر نهایی واضح و مرتب است.
-- خطاهای رایج (syntax/runtime) کنترل شده‌اند.
+## 6) خروجی نهایی مورد انتظار
+- admin بتواند با دو textbox مستقل، Approver و Notify را داینامیک تعیین کند.
+- خروجی‌ها per-record و قابل پیش‌بینی باشند.
+- خطاهای syntax/runtime/type با پیام مناسب کنترل شوند.
