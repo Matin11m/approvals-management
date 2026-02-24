@@ -1,0 +1,33 @@
+<odoo>
+    <record id="view_approval_engine_request_form_python_rules" model="ir.ui.view">
+        <field name="name">approval.engine.request.form.python.rules</field>
+        <field name="model">approval.engine.request</field>
+        <field name="inherit_id" ref="approval_engine.view_approval_engine_request_form"/>
+        <field name="arch" type="xml">
+            <header position="inside">
+                <button
+                    name="action_execute_custom_python_rule"
+                    type="object"
+                    string="Run Python Rule"
+                    class="btn-secondary"
+                    invisible="python_rule_mode != 'manual'"
+                />
+            </header>
+
+            <notebook position="inside">
+                <page string="Python Rules">
+                    <group>
+                        <group>
+                            <field name="python_rule_mode"/>
+                            <field name="python_last_result" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="python_rule_code" widget="text" placeholder="result = record.amount_total &lt;= 10000\nmessage = 'Amount is over limit'"/>
+                        <field name="python_last_log" readonly="1"/>
+                    </group>
+                </page>
+            </notebook>
+        </field>
+    </record>
+</odoo>

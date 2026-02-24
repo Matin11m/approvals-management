@@ -1,0 +1,36 @@
+<odoo>
+    <record id="action_approval_engine_forms" model="ir.actions.act_window">
+        <field name="name">Approvals Forms</field>
+        <field name="res_model">approval.category</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_approval_engine_root" name="Approval Engine" sequence="10"/>
+
+    <menuitem
+        id="menu_approval_engine_requests"
+        name="Requests"
+        parent="menu_approval_engine_root"
+        action="approval_engine.action_approval_engine_requests"
+        sequence="10"
+       
+    />
+
+    <menuitem
+        id="menu_approval_engine_forms"
+        name="Approvals Forms"
+        parent="menu_approval_engine_root"
+        action="approval_engine.action_approval_engine_forms"
+        sequence="15"
+       
+    />
+
+    <menuitem
+        id="menu_approval_engine_templates"
+        name="Templates"
+        parent="menu_approval_engine_root"
+        action="approval_engine.action_approval_engine_templates"
+        sequence="20"
+       
+    />
+</odoo>
