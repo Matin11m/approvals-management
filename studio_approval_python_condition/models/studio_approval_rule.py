@@ -14,10 +14,33 @@ _logger = logging.getLogger(__name__)
 class StudioApprovalRule(models.Model):
     _inherit = "studio.approval.rule"
 
+    _PYTHON_CODE_GUIDE = _(
+        """Available variables:
+- env: Odoo environment
+- user: current user record
+- record: current business record
+- rule: current approval rule
+- result: boolean output (default = True)
+
+Quick examples:
+- result = record.amount_total > 10000
+- result = user.has_group('sales_team.group_sale_manager')
+- result = record.company_id == user.company_id"""
+    )
+
     python_code = fields.Text(
         string="Python Condition",
         help="Optional python code to decide if this rule applies. Set a boolean on `result` (default is True). Available variables: env, user, record, rule.",
     )
+    python_code_guide = fields.Text(
+        string="Python Guide",
+        compute="_compute_python_code_guide",
+        readonly=True,
+    )
+
+    def _compute_python_code_guide(self):
+        for rule in self:
+            rule.python_code_guide = self._PYTHON_CODE_GUIDE
 
     @api.depends("domain", "python_code")
     def _compute_conditional(self):
