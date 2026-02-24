@@ -1,76 +1,137 @@
-# End-to-end test scenario: Studio Approval Python Condition
+# سناریوی تست کامل (فارسی) — ماژول Studio Approval Python Condition
 
-## Goal
-Verify that a Studio approval rule can be applied based on Python code and that the readonly guide text helps users write valid code.
+## 1) هدف تست
+اعتبارسنجی کامل این قابلیت که:
+- فیلد راهنمای readonly برای نوشتن شرط پایتون در فرم Rule نمایش داده شود.
+- شرط پایتونی (`python_code`) در کنار Domain روی اعمال/عدم اعمال Rule اثر بگذارد.
+- خطاهای syntax و runtime به‌درستی مدیریت شوند.
 
-## Preconditions
-1. Odoo instance is running.
-2. `web_studio` and `studio_approval_python_condition` modules are installed.
-3. Test users:
-   - `Approver`
-   - `Requester`
-4. A model with approvals enabled (example: Sales Order / `sale.order`).
+---
 
-## Scenario A — UI guide visibility
-1. Open **Studio > Approvals** and create/edit an approval rule.
-2. Locate the new readonly field **Python Guide** below the domain field.
-3. Confirm the guide shows available variables: `env`, `user`, `record`, `rule`, `result`.
-4. Confirm the editable field **Python Condition** is visible and empty by default.
+## 2) پیش‌نیازها
+1. Odoo بالا باشد.
+2. ماژول‌های `web_studio` و `studio_approval_python_condition` نصب باشند.
+3. یک مدل دارای Approval فعال داشته باشید (پیشنهاد: Sales Order / `sale.order`).
+4. دو کاربر تستی داشته باشید:
+   - `Requester` (ایجاد/تایید سند)
+   - `Approver` (تاییدکننده)
 
-### Expected result
-- Guide is visible and readonly.
-- Python Condition remains editable.
+---
 
-## Scenario B — Positive applicability check
-1. Configure a rule on Sales Order confirmation with:
-   - Domain: empty
-   - Python Condition:
-     ```python
-     result = record.amount_total > 10000
-     ```
-2. Create Sales Order `SO-LOW` with total `< 10000`.
-3. Try confirming `SO-LOW`.
-4. Create Sales Order `SO-HIGH` with total `> 10000`.
-5. Try confirming `SO-HIGH` as `Requester`.
+## 3) شناسنامه فیلدها (Field-by-Field)
 
-### Expected result
-- `SO-LOW`: rule is not applicable, no approval block from this rule.
-- `SO-HIGH`: rule is applicable and approval flow starts (request/approval needed).
+| نام فیلد | نوع | محل نمایش | مقدار نمونه | اجباری | توضیح |
+|---|---|---|---|---|---|
+| `domain` | Char (domain string) | فرم Rule | `[("company_id", "=", user.company_id.id)]` | خیر | فیلتر اولیه رکوردها. |
+| `python_code_guide` | Text (readonly, compute) | فرم Rule | راهنمای متغیرهای قابل استفاده | بله (سیستمی) | فقط جهت نمایش راهنما و قابل ویرایش نیست. |
+| `python_code` | Text | فرم Rule | `result = record.amount_total > 10000` | خیر | کد پایتون برای تعیین نهایی اعمال Rule. |
+| `result` | Boolean (runtime variable) | داخل کد پایتون | `True` / `False` | بله (در منطق) | خروجی باید در این متغیر ست شود؛ پیش‌فرض `True` است. |
 
-## Scenario C — Syntax validation
-1. Edit the same rule.
-2. Enter invalid Python code:
-   ```python
-   result = (record.amount_total > 10000
-   ```
-3. Save rule.
+متغیرهای قابل استفاده در `python_code`:
+- `env`: محیط Odoo
+- `user`: کاربر جاری
+- `record`: رکورد جاری
+- `rule`: قانون تایید جاری
+- `result`: خروجی بولی
 
-### Expected result
-- Validation error appears (`Invalid python condition syntax`).
-- Rule is not saved with invalid code.
+---
 
-## Scenario D — Combined Domain + Python
-1. Set Domain to one company only (example current company).
-2. Set Python Condition:
-   ```python
-   result = user.has_group('sales_team.group_sale_manager')
-   ```
-3. Test with manager and non-manager users in matching domain.
+## 4) سناریوهای تست گام‌به‌گام
 
-### Expected result
-- Rule applies only when both domain and python condition are true.
+## سناریو A — بررسی نمایش UI و مرتب بودن فرم
+### مراحل
+1. مسیر **Studio > Approvals** را باز کنید.
+2. یک Rule جدید بسازید یا یک Rule موجود را باز کنید.
+3. بعد از فیلد Domain، بلوک **Python Condition** را بررسی کنید.
+4. چک کنید فیلد **Python Guide** فقط readonly باشد.
+5. چک کنید فیلد **Python Condition** قابل ویرایش باشد.
 
-## Scenario E — Runtime error handling
-1. Set Python Condition to:
-   ```python
-   result = 1 / 0
-   ```
-2. Trigger approval check.
+### انتظار
+- نمایش فرم منظم باشد (Separator + گروه یکپارچه).
+- راهنما قابل مشاهده و غیرقابل ویرایش باشد.
+- فیلد شرط پایتون قابل ویرایش باشد.
 
-### Expected result
-- User-friendly `UserError` is raised and explains there is an error in python condition.
+---
 
-## Regression checklist
-- Approvals without Python Condition still work as before.
-- Existing domain-only rules still behave unchanged.
-- Notification order behavior remains intact.
+## سناریو B — اعمال Rule فقط با Python Condition
+### تنظیم Rule
+- `domain`: خالی
+- `python_code`:
+```python
+result = record.amount_total > 10000
+```
+
+### مراحل
+1. یک سفارش فروش با مبلغ `9000` بسازید.
+2. عملیات تایید/Confirm را بزنید.
+3. یک سفارش فروش با مبلغ `15000` بسازید.
+4. عملیات تایید/Confirm را بزنید.
+
+### انتظار
+- سفارش `9000`: این Rule اعمال نشود.
+- سفارش `15000`: این Rule اعمال شود و فرآیند approval شروع شود.
+
+---
+
+## سناریو C — اعتبارسنجی Syntax
+### تنظیم Rule
+- `python_code` نامعتبر:
+```python
+result = (record.amount_total > 10000
+```
+
+### مراحل
+1. Rule را ذخیره کنید.
+
+### انتظار
+- خطای Validation نمایش داده شود.
+- Rule با کد نامعتبر ذخیره نشود.
+
+---
+
+## سناریو D — ترکیب Domain + Python
+### تنظیم Rule
+- `domain`: محدود به شرکت فعلی
+- `python_code`:
+```python
+result = user.has_group('sales_team.group_sale_manager')
+```
+
+### مراحل
+1. با کاربر مدیر فروش روی رکوردی در همان شرکت تست کنید.
+2. با کاربر غیرمدیر روی همان رکورد تست کنید.
+
+### انتظار
+- Rule فقط وقتی اعمال شود که **هر دو شرط** Domain و Python برقرار باشند.
+
+---
+
+## سناریو E — خطای Runtime
+### تنظیم Rule
+- `python_code`:
+```python
+result = 1 / 0
+```
+
+### مراحل
+1. عملیاتی را اجرا کنید که Approval Check را trigger کند.
+
+### انتظار
+- `UserError` کاربرپسند نمایش داده شود.
+- پیام خطا مشخص کند شرط پایتون Rule خطا دارد.
+
+---
+
+## 5) چک‌لیست رگرسیون
+- Ruleهای قدیمی که فقط Domain دارند، بدون تغییر کار کنند.
+- Ruleهای بدون Python Condition رفتار قبلی را حفظ کنند.
+- ترتیب notification/order در approvalها به‌هم نریزد.
+- عملیات revoke/approve/request در مسیرهای اصلی همچنان صحیح بمانند.
+
+---
+
+## 6) خروجی مورد انتظار نهایی
+اگر تمام سناریوها پاس شوند:
+- قابلیت شرط پایتونی قابل استفاده و قابل اتکا است.
+- UI برای کاربر نهایی واضح و مرتب است.
+- خطاهای رایج (syntax/runtime) کنترل شده‌اند.
