@@ -49,6 +49,7 @@ class PurchaseOrder(models.Model):
 
 
 ## Documentation
+- Full manual (FA): `docs/approval_engine_full_manual_fa.md`
 - Technical spec (FA): `docs/approval_engine_technical_spec_fa.md`
 - User guide (FA): `docs/approval_engine_user_guide_fa.md`
 
