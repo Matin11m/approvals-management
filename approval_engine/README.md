@@ -49,6 +49,7 @@ class PurchaseOrder(models.Model):
 
 
 ## Documentation
+- Studio parity plan (FA): `approval_engine/docs/approval_engine_studio_parity_plan_fa.md`
 - Test scenarios (FA): `approval_engine/docs/approval_engine_test_scenarios_fa.md`
 - Full manual (FA): `approval_engine/docs/approval_engine_full_manual_fa.md`
 - Technical spec (FA): `approval_engine/docs/approval_engine_technical_spec_fa.md`
