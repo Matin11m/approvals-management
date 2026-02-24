@@ -1,11 +1,6 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_approval_engine_template_user,approval.engine.template user,model_approval_engine_template,approval_engine.group_approval_engine_user,1,0,0,0
-access_approval_engine_template_manager,approval.engine.template manager,model_approval_engine_template,approval_engine.group_approval_engine_manager,1,1,1,1
-access_approval_engine_step_user,approval.engine.step user,model_approval_engine_step,approval_engine.group_approval_engine_user,1,0,0,0
-access_approval_engine_step_manager,approval.engine.step manager,model_approval_engine_step,approval_engine.group_approval_engine_manager,1,1,1,1
-access_approval_engine_binding_user,approval.engine.binding user,model_approval_engine_binding,approval_engine.group_approval_engine_user,1,0,0,0
-access_approval_engine_binding_manager,approval.engine.binding manager,model_approval_engine_binding,approval_engine.group_approval_engine_manager,1,1,1,1
-access_approval_engine_request_user,approval.engine.request user,model_approval_engine_request,approval_engine.group_approval_engine_user,1,1,1,0
-access_approval_engine_request_manager,approval.engine.request manager,model_approval_engine_request,approval_engine.group_approval_engine_manager,1,1,1,1
-access_approval_engine_log_user,approval.engine.log user,model_approval_engine_log,approval_engine.group_approval_engine_user,1,0,0,0
-access_approval_engine_log_manager,approval.engine.log manager,model_approval_engine_log,approval_engine.group_approval_engine_manager,1,1,1,1
+access_approval_engine_template_user,approval.engine.template user,model_approval_engine_template,base.group_user,1,1,1,1
+access_approval_engine_step_user,approval.engine.step user,model_approval_engine_step,base.group_user,1,1,1,1
+access_approval_engine_binding_user,approval.engine.binding user,model_approval_engine_binding,base.group_user,1,1,1,1
+access_approval_engine_request_user,approval.engine.request user,model_approval_engine_request,base.group_user,1,1,1,1
+access_approval_engine_log_user,approval.engine.log user,model_approval_engine_log,base.group_user,1,1,1,1

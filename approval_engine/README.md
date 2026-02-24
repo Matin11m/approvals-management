@@ -55,5 +55,6 @@ class PurchaseOrder(models.Model):
 
 
 ## Current Access-Control Policy
-At this stage, custom ACL/groups are intentionally not loaded to keep module setup simple during early product maturation.
-Define and enable security policies in a later hardening phase.
+At this stage, fine-grained ACL/groups are intentionally postponed.
+A temporary flat access policy is enabled for internal users (`base.group_user`) so core menus (Requests/Templates) are visible and usable.
+Define strict role-based policies in a later hardening phase.

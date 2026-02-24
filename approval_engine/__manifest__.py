@@ -8,6 +8,7 @@
     "license": "LGPL-3",
     "depends": ["base", "mail", "approvals"],
     "data": [
+        "security/ir.model.access.csv",
         "data/sequence.xml",
         "data/bootstrap.xml",
         "views/approval_template_views.xml",
