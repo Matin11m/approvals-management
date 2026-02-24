@@ -14,18 +14,44 @@ _logger = logging.getLogger(__name__)
 class StudioApprovalRule(models.Model):
     _inherit = "studio.approval.rule"
 
-    _PYTHON_CODE_GUIDE = _(
-        """Available variables:
+    _APPROVER_PYTHON_CODE_GUIDE = _(
+        """Approver Python Guide
+Available variables:
 - env: Odoo environment
-- user: current user record
+- user: current user
 - record: current business record
 - rule: current approval rule
-- result: boolean output (default = True)
+- result: users output
 
-Quick examples:
-- result = [env.user.id]
+Allowed result types:
+- res.users recordset
+- single user id (int)
+- list/tuple/set of user ids
+
+Examples:
 - result = record.user_id
-- result = record.team_id.member_ids"""
+- result = [env.user.id]
+- result = record.team_id.user_id"""
+    )
+
+    _NOTIFY_PYTHON_CODE_GUIDE = _(
+        """Notify Python Guide
+Available variables:
+- env: Odoo environment
+- user: current user
+- record: current business record
+- rule: current approval rule
+- result: users output
+
+Allowed result types:
+- res.users recordset
+- single user id (int)
+- list/tuple/set of user ids
+
+Examples:
+- result = record.team_id.member_ids
+- result = [record.user_id.id]
+- result = env.user"""
     )
 
     python_code = fields.Text(
@@ -36,15 +62,21 @@ Quick examples:
         string="Notify Approver Python Condition",
         help="Optional python code to decide if approvers should be notified. Set a boolean on `result` (default is True). Available variables: env, user, record, rule.",
     )
-    python_code_guide = fields.Text(
-        string="Python Guide",
-        compute="_compute_python_code_guide",
+    approver_python_code_guide = fields.Text(
+        string="Approver Python Guide",
+        compute="_compute_python_code_guides",
+        readonly=True,
+    )
+    notify_python_code_guide = fields.Text(
+        string="Notify Python Guide",
+        compute="_compute_python_code_guides",
         readonly=True,
     )
 
-    def _compute_python_code_guide(self):
+    def _compute_python_code_guides(self):
         for rule in self:
-            rule.python_code_guide = self._PYTHON_CODE_GUIDE
+            rule.approver_python_code_guide = self._APPROVER_PYTHON_CODE_GUIDE
+            rule.notify_python_code_guide = self._NOTIFY_PYTHON_CODE_GUIDE
 
     @api.depends("domain", "python_code", "notify_python_code")
     def _compute_conditional(self):

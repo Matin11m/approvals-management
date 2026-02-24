@@ -1,73 +1,53 @@
-# راهنمای کاربر (فارسی) — تنظیم Approver و Notify با Python
+# راهنمای کاربر (فارسی) — تب‌های Approver/Notify Python
 
-## این قابلیت چه کاری می‌کند؟
-در Rule تایید، می‌توانید با کد پایتون مشخص کنید:
-1. چه کاربرانی **Approver** باشند.
-2. چه کاربرانی **Notify** دریافت کنند.
+## تغییر جدید UI
+در فرم Rule، بعد از `domain` یک بخش تب‌دار اضافه شده است:
+1. تب **Approver Python**
+2. تب **Notify Python**
 
-این دو کاملاً جدا از هم هستند.
-
----
-
-## محل فیلدها
-مسیر: **Studio > Approvals > Rule Form**
-
-بعد از Domain این فیلدها را می‌بینید:
-- `Python Guide` (readonly)
-- `Approver Python Condition` (`python_code`)
-- `Notify Approver Python Condition` (`notify_python_code`)
+در هر تب:
+- یک راهنمای readonly دارید (چه متغیرهایی قابل استفاده‌اند و چه خروجی مجاز است)
+- یک textbox برای کد پایتون دارید
 
 ---
 
-## متغیرهای قابل استفاده در کد
+## تب Approver Python
+- فیلد راهنما: `approver_python_code_guide` (readonly)
+- فیلد کد: `python_code`
+- هدف: تعیین داینامیک Approverها
+
+نمونه:
+```python
+result = record.user_id
+```
+
+---
+
+## تب Notify Python
+- فیلد راهنما: `notify_python_code_guide` (readonly)
+- فیلد کد: `notify_python_code`
+- هدف: تعیین داینامیک کاربران Notify
+
+نمونه:
+```python
+result = record.team_id.member_ids
+```
+
+---
+
+## متغیرهای قابل استفاده در هر دو تب
 - `env`
 - `user`
 - `record`
 - `rule`
 - `result`
 
-> باید خروجی را داخل `result` قرار دهید.
-
----
-
-## خروجی قابل قبول برای `result`
+## خروجی مجاز `result`
 - `res.users` recordset
-- یک id کاربر (عدد)
-- لیست/tuple/set از id کاربران
-- لیستی از رکوردهای `res.users`
+- `int` (شناسه کاربر)
+- `list/tuple/set` از شناسه کاربران
 
-نمونه‌های معتبر:
-```python
-result = record.user_id
-```
-
-```python
-result = record.team_id.member_ids
-```
-
-```python
-result = [env.user.id]
-```
-
----
-
-## مثال عملی
-### 1) Approver شرطی
-```python
-# تاییدکننده = مدیر فروش سند
-result = record.user_id
-```
-
-### 2) Notify شرطی
-```python
-# نوتیفای به اعضای تیم فروش
-result = record.team_id.member_ids
-```
-
----
-
-## نکات مهم
-- اگر `python_code` خالی باشد، سیستم از `Approvers` عادی Rule استفاده می‌کند.
-- اگر `notify_python_code` خالی باشد، سیستم از `Users to Notify` عادی Rule استفاده می‌کند.
-- خطای syntax باعث می‌شود Rule ذخیره نشود.
-- خروجی نامعتبر (مثلاً string به‌جای user/id) خطای کاربرپسند می‌دهد.
+## نکات
+- اگر `python_code` خالی باشد، از `approver_ids` عادی استفاده می‌شود.
+- اگر `notify_python_code` خالی باشد، از `users_to_notify` عادی استفاده می‌شود.
+- خطای syntax یا خروجی نامعتبر، خطای کاربرپسند می‌دهد.
