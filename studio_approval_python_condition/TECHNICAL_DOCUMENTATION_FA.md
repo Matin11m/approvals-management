@@ -40,3 +40,31 @@
 - تمیزتر شدن UI
 - تفکیک واضح مسئولیت‌ها بین Approver و Notify
 - راهنمای درجا (readonly) برای هر تب و کاهش خطای کاربر
+
+
+---
+
+## رفع خطای `UndefinedColumn` برای `notify_python_code`
+اگر خطای زیر را دیدید:
+
+`psycopg2.errors.UndefinedColumn: column studio_approval_rule.notify_python_code does not exist`
+
+علت: کد جدید deploy شده ولی ماژول upgrade نشده و ستون DB هنوز ساخته نشده است.
+
+### راه‌حل استاندارد (پیشنهادی)
+ماژول را upgrade کنید تا ORM ستون‌های جدید را بسازد:
+
+```bash
+odoo-bin -d <db_name> -u studio_approval_python_condition --stop-after-init
+```
+
+### راه‌حل اضطراری (فقط برای مواقع خاص)
+اگر لازم شد موقتاً دستی ستون را بسازید (بعدش باز هم upgrade انجام شود):
+
+```sql
+ALTER TABLE studio_approval_rule ADD COLUMN IF NOT EXISTS notify_python_code text;
+ALTER TABLE studio_approval_rule ADD COLUMN IF NOT EXISTS approver_python_examples_guide text;
+ALTER TABLE studio_approval_rule ADD COLUMN IF NOT EXISTS notify_python_examples_guide text;
+```
+
+> نکته: روش صحیح و پایدار همان upgrade ماژول است.
