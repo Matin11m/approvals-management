@@ -1,0 +1,12 @@
+<odoo>
+    <record id="studio_approval_rule_form_view_python_condition" model="ir.ui.view">
+        <field name="name">studio.approval.form.python.condition</field>
+        <field name="model">studio.approval.rule</field>
+        <field name="inherit_id" ref="web_studio.studio_approval_rule_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='domain']" position="after">
+                <field name="python_code" widget="text" placeholder="result = record.amount_total > 10000"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
