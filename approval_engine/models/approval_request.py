@@ -1,5 +1,6 @@
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
+from odoo.tools.safe_eval import safe_eval
 
 
 class ApprovalRequest(models.Model):
@@ -30,6 +31,31 @@ class ApprovalRequest(models.Model):
     requester_id = fields.Many2one("res.users", default=lambda self: self.env.user, required=True)
     current_step_id = fields.Many2one("approval.engine.step", tracking=True)
     log_ids = fields.One2many("approval.engine.log", "request_id")
+
+    python_rule_mode = fields.Selection(
+        [
+            ("none", "Disabled"),
+            ("manual", "Manual Only"),
+            ("approve", "On Approve"),
+            ("reject", "On Reject"),
+            ("both", "On Approve and Reject"),
+        ],
+        default="none",
+        string="Python Rule Mode",
+        tracking=True,
+    )
+    python_rule_code = fields.Text(
+        string="Python Execute Code",
+        help=(
+            "Python code executed with safe_eval(mode='exec').\n"
+            "Available variables: request, record, env, user, action.\n"
+            "Set variable `result` to True/False to allow/block the action.\n"
+            "Optional: set `message` for a user-facing error."
+        ),
+        tracking=True,
+    )
+    python_last_result = fields.Char(readonly=True)
+    python_last_log = fields.Text(readonly=True)
 
     @api.constrains("state", "template_id", "res_model", "res_id")
     def _check_single_open_request(self):
@@ -70,6 +96,42 @@ class ApprovalRequest(models.Model):
         self.ensure_one()
         return self.env[self.res_model].browse(self.res_id).exists()
 
+    def _is_python_rule_enabled_for(self, action):
+        self.ensure_one()
+        return self.python_rule_mode in {"both", action}
+
+    def _execute_python_rule(self, action):
+        self.ensure_one()
+        if not self.python_rule_code or not self._is_python_rule_enabled_for(action):
+            return True
+
+        record = self._get_target_record()
+        localdict = {
+            "request": self,
+            "record": record,
+            "env": self.env,
+            "user": self.env.user,
+            "action": action,
+            "result": True,
+            "message": "",
+        }
+        try:
+            safe_eval(self.python_rule_code, localdict, mode="exec", nocopy=True)
+        except Exception as exc:
+            self.write({"python_last_result": "error", "python_last_log": str(exc)})
+            raise UserError(_("Python rule execution failed: %s") % str(exc))
+
+        allow = bool(localdict.get("result", True))
+        msg = localdict.get("message") or ""
+        self.write({"python_last_result": "allowed" if allow else "blocked", "python_last_log": msg})
+        if not allow:
+            raise UserError(msg or _("Action blocked by custom Python rule."))
+        return True
+
+    def action_execute_custom_python_rule(self):
+        for request in self:
+            request._execute_python_rule("manual")
+
     def action_submit(self):
         for request in self:
             if request.state not in ("draft", "cancelled"):
@@ -88,6 +150,7 @@ class ApprovalRequest(models.Model):
 
     def action_approve(self, comment=None):
         for request in self:
+            request._execute_python_rule("approve")
             if request.state != "waiting":
                 raise UserError(_("Only waiting requests can be approved."))
             step = request.current_step_id
@@ -132,6 +195,7 @@ class ApprovalRequest(models.Model):
 
     def action_reject(self, reason=None):
         for request in self:
+            request._execute_python_rule("reject")
             if request.state != "waiting":
                 raise UserError(_("Only waiting requests can be rejected."))
             step = request.current_step_id
