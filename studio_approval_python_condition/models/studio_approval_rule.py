@@ -29,8 +29,12 @@ Quick examples:
     )
 
     python_code = fields.Text(
-        string="Python Condition",
-        help="Optional python code to decide if this rule applies. Set a boolean on `result` (default is True). Available variables: env, user, record, rule.",
+        string="Approver Python Condition",
+        help="Optional python code to decide if this rule applies for approvers. Set a boolean on `result` (default is True). Available variables: env, user, record, rule.",
+    )
+    notify_python_code = fields.Text(
+        string="Notify Approver Python Condition",
+        help="Optional python code to decide if approvers should be notified. Set a boolean on `result` (default is True). Available variables: env, user, record, rule.",
     )
     python_code_guide = fields.Text(
         string="Python Guide",
@@ -42,19 +46,22 @@ Quick examples:
         for rule in self:
             rule.python_code_guide = self._PYTHON_CODE_GUIDE
 
-    @api.depends("domain", "python_code")
+    @api.depends("domain", "python_code", "notify_python_code")
     def _compute_conditional(self):
         for rule in self:
-            rule.conditional = bool(rule.domain or rule.python_code)
+            rule.conditional = bool(rule.domain or rule.python_code or rule.notify_python_code)
 
-    @api.constrains("python_code")
+    @api.constrains("python_code", "notify_python_code")
     def _check_python_code(self):
         for rule in self:
-            if rule.python_code:
+            for field_name in ("python_code", "notify_python_code"):
+                code = rule[field_name]
+                if not code:
+                    continue
                 try:
-                    parse(rule.python_code)
+                    parse(code)
                 except SyntaxError as error:
-                    raise ValidationError(_("Invalid python condition syntax: %s", error))
+                    raise ValidationError(_("Invalid python condition syntax in %s: %s", field_name, error))
 
     def _is_rule_applicable(self, record, domain=None, python_code=None):
         self.ensure_one()
@@ -78,6 +85,9 @@ Quick examples:
             raise UserError(_("Error in python condition for rule '%(rule)s': %(error)s", rule=self.display_name, error=error))
         return bool(localdict.get("result"))
 
+    def _is_notify_applicable(self, record, domain=None, notify_python_code=None):
+        return self._is_rule_applicable(record, domain=domain, python_code=notify_python_code)
+
     def delete_approval(self, res_id):
         self.ensure_one()
         record = self.env[self.sudo().model_name].browse(res_id)
@@ -94,7 +104,7 @@ Quick examples:
                 ('model_name', '=', rule_sudo.model_name),
                 ('method', '=', rule_sudo.method), ('action_id', '=', rule_sudo.action_id.id),
                 ('notification_order', ">", rule_sudo.notification_order)
-            ], ["domain", "python_code", "can_validate"], order="notification_order DESC")
+            ], ["domain", "python_code", "notify_python_code", "can_validate"], order="notification_order DESC")
 
             can_revoke = False
             for rule in rules_above:
@@ -162,7 +172,7 @@ Quick examples:
                 ("model_name", "=", rule_sudo.model_name),
                 ('method', '=', rule_sudo.method),
                 ('action_id', '=', rule_sudo.action_id.id)
-            ], ["domain", "python_code", "notification_order"]):
+            ], ["domain", "python_code", "notify_python_code", "notification_order"]):
                 if rule["id"] == rule_sudo.id:
                     continue
                 if not self.browse(rule["id"])._is_rule_applicable(record, rule.get("domain"), rule.get("python_code")):
@@ -215,7 +225,7 @@ Quick examples:
         )
         rules_data = self.sudo().search_read(
             domain=rules_domain,
-            fields=['name', 'message', 'exclusive_user', 'can_validate', 'action_id', 'method', "approver_ids", "users_to_notify", "approval_group_id", "notification_order", "domain", "python_code"],
+            fields=['name', 'message', 'exclusive_user', 'can_validate', 'action_id', 'method', "approver_ids", "users_to_notify", "approval_group_id", "notification_order", "domain", "python_code", "notify_python_code"],
             order='notification_order asc, exclusive_user desc, id asc')
 
         results = defaultdict(dict)
@@ -274,7 +284,7 @@ Quick examples:
         domain = self._get_rule_domain(model, method, action_id)
         rules_data = rule_sudo.search_read(
             domain=domain,
-            fields=['message', 'name', 'domain', 'python_code'],
+            fields=['message', 'name', 'domain', 'python_code', 'notify_python_code'],
             order='notification_order asc, exclusive_user desc, id asc'
         )
         applicable_rule_ids = []
@@ -323,12 +333,15 @@ Quick examples:
         if not users:
             return False
 
+        record = self.env[rule_sudo.model_name].browse(res_id)
+        if not rule_sudo._is_notify_applicable(record, rule_sudo.domain, rule_sudo.notify_python_code):
+            return False
+
         requests = self.env['studio.approval.request'].sudo().search([('rule_id', '=', self.id), ('res_id', '=', res_id)])
         if requests:
             return False
         if self.notification_order != '1':
             entry_sudo = self.env["studio.approval.entry"].sudo()
-            record = self.env[rule_sudo.model_name].browse(res_id)
             for approval_rule in rule_sudo.search([
                 ('notification_order', '<', self.notification_order),
                 ('active', '=', True),
