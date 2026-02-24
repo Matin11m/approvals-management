@@ -1,29 +1,55 @@
-# راهنمای کاربر ماژول یکپارچه Approval Engine
+# راهنمای کاربر (User Guide) — Approval Engine
 
-## 1) نصب
-1. ماژول `approval_engine` را نصب کنید.
-2. وارد اپ Approval Engine شوید.
+## 1) ورود به ماژول
+1. Apps -> نصب `Approval Engine`
+2. از App Launcher وارد اپ شوید.
+3. منوهای اصلی:
+   - `Approvals Forms`
+   - `Templates`
+   - `Requests`
 
-## 2) تنظیم اولیه
-1. از Templates یک قالب بسازید.
-2. Model هدف را انتخاب کنید.
-3. در Steps مرحله‌ها را تعریف کنید.
-4. قالب را Active کنید.
+## 2) راه‌اندازی سریع
+### قدم 1: ساخت Template
+- مسیر: `Templates`
+- فیلدها:
+  - `Approvals Form`
+  - `Model`
+  - `Rule Type`
 
-## 3) استفاده از Python Rule روی Request
-1. یک Request باز کنید.
-2. در تب `Python Rules`:
-   - `Python Rule Mode` را انتخاب کنید.
-   - کد را در `Python Execute Code` وارد کنید.
-3. برای تست دستی، mode را `manual` بگذارید و `Run Python Rule` بزنید.
+### قدم 2: تعریف Steps
+- حداقل یک step الزامی است.
+- برای هر step:
+  - گروه تاییدکننده
+  - حداقل تعداد تایید
 
-## 4) مثال کد
+### قدم 3: فعال‌سازی
+- Template را `Active` کنید.
+
+## 3) کار با Request
+1. رکورد business را submit کنید.
+2. در `Requests` وضعیت را دنبال کنید.
+3. Approverها approve/reject انجام دهند.
+4. لاگ‌ها در تب Logs ثبت می‌شوند.
+
+## 4) استفاده از Python Rules
+در فرم Request -> تب `Python Rules`:
+- `Python Rule Mode`:
+  - `none`, `manual`, `approve`, `reject`, `both`
+- `Python Execute Code`
+
+### مثال
 ```python
 if record and record.amount_total > 10000:
     result = False
     message = 'Amount is over allowed threshold.'
 ```
 
-## 5) نتیجه
-- اگر `result=False` باشد، Approve/Reject متوقف می‌شود.
-- خروجی در `python_last_result` و `python_last_log` ثبت می‌شود.
+### تست دستی
+- mode را `manual` بگذارید.
+- دکمه `Run Python Rule` را بزنید.
+- خروجی در `python_last_result` و `python_last_log` دیده می‌شود.
+
+## 5) خطاهای رایج
+- Template فعال بدون Step -> خطای validation
+- کاربر خارج از گروه step -> خطای دسترسی approve/reject
+- خطای syntax در python code -> ثبت خطا و block action

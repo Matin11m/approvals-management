@@ -1,30 +1,60 @@
-# سناریوهای تست ماژول یکپارچه Approval Engine
+# سناریوهای تست (Test Scenarios) — Approval Engine
 
-## سناریو 1: ایجاد Template و Step
-- Template ایجاد شود.
-- حداقل یک Step ثبت شود.
-- Template فعال شود.
+## A) Smoke
+1. نصب ماژول
+2. مشاهده منوهای اصلی
+3. باز شدن صفحات Templates/Requests
 
-## سناریو 2: Submit Request
-- درخواست ایجاد شود.
-- state به `waiting` برود.
+## B) Template + Step
+1. ساخت Template
+2. اضافه کردن Step
+3. فعال‌سازی Template
+**Expected:** بدون خطا ذخیره شود.
 
-## سناریو 3: Python Rule دستی
-- mode=`manual`
-- Run Python Rule
-- نتیجه در `python_last_result` ثبت شود.
+## C) Submit Flow
+1. ایجاد رکورد هدف
+2. submit for approval
+**Expected:**
+- request ایجاد شود
+- state=`waiting`
+- current_step پر شود
 
-## سناریو 4: بلاک Approve با Python
-- mode=`approve`
-- کد: `result=False`
-- انتظار: approve متوقف شود.
+## D) Approve Flow
+1. approver مجاز approve کند
+**Expected:**
+- log approve ثبت شود
+- اگر آخرین step بود state=`approved`
 
-## سناریو 5: بلاک Reject با Python
-- mode=`reject`
-- کد: `result=False`
-- انتظار: reject متوقف شود.
+## E) Reject Flow
+1. approver مجاز reject کند
+**Expected:**
+- log reject ثبت شود
+- state=`rejected`
 
-## سناریو 6: اجرای موفق
-- mode=`both`
-- کد: `result=True`
-- انتظار: approve/reject طبق روال عادی اجرا شود.
+## F) Authorization
+1. کاربر غیرمجاز approve/reject کند
+**Expected:** خطای عدم مجوز
+
+## G) Python Rule - Manual
+1. mode=`manual`
+2. code با `result=True`
+3. Run Python Rule
+**Expected:** `python_last_result=allowed`
+
+## H) Python Rule - Block Approve
+1. mode=`approve`
+2. code: `result=False`
+3. Approve
+**Expected:** approve بلاک شود + پیام خطا
+
+## I) Python Rule - Block Reject
+1. mode=`reject`
+2. code: `result=False`
+3. Reject
+**Expected:** reject بلاک شود
+
+## J) Regression after upgrade
+1. upgrade module
+2. بازبینی منوها و request flow
+3. اجرای یک سناریوی Python Rule
+**Expected:** بدون خطای XML/Model/CSV
