@@ -23,9 +23,9 @@ class StudioApprovalRule(models.Model):
 - result: boolean output (default = True)
 
 Quick examples:
-- result = record.amount_total > 10000
-- result = user.has_group('sales_team.group_sale_manager')
-- result = record.company_id == user.company_id"""
+- result = [env.user.id]
+- result = record.user_id
+- result = record.team_id.member_ids"""
     )
 
     python_code = fields.Text(
@@ -85,8 +85,60 @@ Quick examples:
             raise UserError(_("Error in python condition for rule '%(rule)s': %(error)s", rule=self.display_name, error=error))
         return bool(localdict.get("result"))
 
-    def _is_notify_applicable(self, record, domain=None, notify_python_code=None):
-        return self._is_rule_applicable(record, domain=domain, python_code=notify_python_code)
+    def _extract_user_ids(self, value):
+        if not value:
+            return []
+        if isinstance(value, models.Model):
+            if value._name != "res.users":
+                raise UserError(_("Python code result must be res.users, ids list, or id."))
+            return value.ids
+        if isinstance(value, int):
+            return [value]
+        if isinstance(value, (list, tuple, set)):
+            user_ids = []
+            for item in value:
+                if isinstance(item, int):
+                    user_ids.append(item)
+                elif isinstance(item, models.Model) and item._name == "res.users":
+                    user_ids.extend(item.ids)
+                else:
+                    raise UserError(_("Python code result list must contain user ids or res.users records."))
+            return user_ids
+        raise UserError(_("Python code result must be res.users, ids list, or id."))
+
+    def _eval_user_python_code(self, record, code, field_label):
+        self.ensure_one()
+        if not code:
+            return self.env["res.users"]
+        localdict = {
+            "env": self.env,
+            "user": self.env.user,
+            "record": record,
+            "rule": self,
+            "result": [],
+        }
+        try:
+            safe_eval(code, localdict, mode="exec", nocopy=True)
+        except Exception as error:
+            _logger.exception("Error while evaluating %s for approval rule %s", field_label, self.id)
+            raise UserError(_("Error in %(field)s for rule '%(rule)s': %(error)s", field=field_label, rule=self.display_name, error=error))
+
+        user_ids = self._extract_user_ids(localdict.get("result"))
+        if not user_ids:
+            return self.env["res.users"]
+        return self.env["res.users"].browse(user_ids).exists()
+
+    def _get_rule_approvers(self, record):
+        self.ensure_one()
+        if self.python_code:
+            return self._eval_user_python_code(record, self.python_code, _("Approver Python Condition"))
+        return self.approver_ids
+
+    def _get_rule_notify_users(self, record):
+        self.ensure_one()
+        if self.notify_python_code:
+            return self._eval_user_python_code(record, self.notify_python_code, _("Notify Approver Python Condition"))
+        return self.users_to_notify
 
     def delete_approval(self, res_id):
         self.ensure_one()
@@ -259,7 +311,11 @@ Quick examples:
             for record_id in record_ids_for_result:
                 res_ids_for_entries.add(record_id)
                 key = (record_id, rule["method"], m2o_to_id(rule["action_id"]))
-                results[key].setdefault("rules", []).append(rule)
+                record = records_for_rule.browse(record_id)
+                rule_data = dict(rule)
+                rule_data["approver_ids"] = self.browse(rule["id"])._get_rule_approvers(record).ids
+                rule_data["users_to_notify"] = self.browse(rule["id"])._get_rule_notify_users(record).ids
+                results[key].setdefault("rules", []).append(rule_data)
                 results[key].setdefault("entries", [])
 
         entries_data = self.env['studio.approval.entry'].sudo().search_read(
@@ -329,12 +385,9 @@ Quick examples:
         if not self.model_id.sudo().is_mail_activity:
             return False
 
-        users = rule_sudo.approver_ids
-        if not users:
-            return False
-
         record = self.env[rule_sudo.model_name].browse(res_id)
-        if not rule_sudo._is_notify_applicable(record, rule_sudo.domain, rule_sudo.notify_python_code):
+        users = rule_sudo._get_rule_approvers(record)
+        if not users:
             return False
 
         requests = self.env['studio.approval.request'].sudo().search([('rule_id', '=', self.id), ('res_id', '=', res_id)])
@@ -362,3 +415,36 @@ Quick examples:
                     return False
 
         return super()._create_request(res_id)
+
+
+class StudioApprovalEntry(models.Model):
+    _inherit = "studio.approval.entry"
+
+    def _notify_approval(self):
+        for entry in self:
+            if not entry.rule_id.model_id.is_mail_thread:
+                continue
+            record = self.env[entry.model].browse(entry.res_id)
+            notify_users = entry.rule_id._get_rule_notify_users(record)
+            partner_ids = notify_users.partner_id
+            rule = entry.rule_id
+            target_name = ""
+            if rule.name:
+                target_name = rule.name
+            elif rule.method:
+                target_name = _("Method: %s", rule.method)
+            elif rule.action_id.name:
+                target_name = _("Action: %s", rule.action_id.name)
+
+            record.message_post_with_source(
+                'web_studio.notify_approval',
+                author_id=entry.user_id.partner_id.id,
+                partner_ids=partner_ids.ids,
+                render_values={
+                    'partner_ids': partner_ids,
+                    'target_name': target_name,
+                    'approved': entry.approved,
+                    'user': entry.user_id,
+                },
+                subtype_xmlid='mail.mt_note',
+            )
