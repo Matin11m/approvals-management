@@ -14,41 +14,43 @@ _logger = logging.getLogger(__name__)
 class StudioApprovalRule(models.Model):
     _inherit = "studio.approval.rule"
 
-    _APPROVER_PYTHON_CODE_GUIDE = _(
+    _APPROVER_PYTHON_CODE_GUIDE_MAIN = _(
         """Approver Python Guide
-Available variables:
-- env: Odoo environment
-- user: current user
-- record: current business record
-- rule: current approval rule
-- result: users output
+Variables:
+- env
+- user
+- record
+- rule
+- result
 
-Allowed result types:
+Allowed result:
 - res.users recordset
-- single user id (int)
-- list/tuple/set of user ids
-
-Examples:
+- user id (int)
+- list/tuple/set of user ids"""
+    )
+    _APPROVER_PYTHON_CODE_GUIDE_EXAMPLES = _(
+        """Approver Examples
 - result = record.user_id
 - result = [env.user.id]
 - result = record.team_id.user_id"""
     )
 
-    _NOTIFY_PYTHON_CODE_GUIDE = _(
+    _NOTIFY_PYTHON_CODE_GUIDE_MAIN = _(
         """Notify Python Guide
-Available variables:
-- env: Odoo environment
-- user: current user
-- record: current business record
-- rule: current approval rule
-- result: users output
+Variables:
+- env
+- user
+- record
+- rule
+- result
 
-Allowed result types:
+Allowed result:
 - res.users recordset
-- single user id (int)
-- list/tuple/set of user ids
-
-Examples:
+- user id (int)
+- list/tuple/set of user ids"""
+    )
+    _NOTIFY_PYTHON_CODE_GUIDE_EXAMPLES = _(
+        """Notify Examples
 - result = record.team_id.member_ids
 - result = [record.user_id.id]
 - result = env.user"""
@@ -67,16 +69,28 @@ Examples:
         compute="_compute_python_code_guides",
         readonly=True,
     )
+    approver_python_examples_guide = fields.Text(
+        string="Approver Python Examples",
+        compute="_compute_python_code_guides",
+        readonly=True,
+    )
     notify_python_code_guide = fields.Text(
         string="Notify Python Guide",
+        compute="_compute_python_code_guides",
+        readonly=True,
+    )
+    notify_python_examples_guide = fields.Text(
+        string="Notify Python Examples",
         compute="_compute_python_code_guides",
         readonly=True,
     )
 
     def _compute_python_code_guides(self):
         for rule in self:
-            rule.approver_python_code_guide = self._APPROVER_PYTHON_CODE_GUIDE
-            rule.notify_python_code_guide = self._NOTIFY_PYTHON_CODE_GUIDE
+            rule.approver_python_code_guide = self._APPROVER_PYTHON_CODE_GUIDE_MAIN
+            rule.approver_python_examples_guide = self._APPROVER_PYTHON_CODE_GUIDE_EXAMPLES
+            rule.notify_python_code_guide = self._NOTIFY_PYTHON_CODE_GUIDE_MAIN
+            rule.notify_python_examples_guide = self._NOTIFY_PYTHON_CODE_GUIDE_EXAMPLES
 
     @api.depends("domain", "python_code", "notify_python_code")
     def _compute_conditional(self):

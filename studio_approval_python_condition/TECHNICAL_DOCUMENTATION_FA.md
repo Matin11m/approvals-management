@@ -4,9 +4,15 @@
 1. فرم Rule بعد از `domain` دارای `notebook` با دو تب است:
    - `Approver Python`
    - `Notify Python`
-2. برای هر تب یک فیلد راهنمای readonly مستقل داریم:
+2. برای هر تب راهنما به دو بخش readonly شکسته شده است:
+   - بخش قوانین/متغیرها
+   - بخش مثال‌ها
+
+   فیلدها:
    - `approver_python_code_guide`
+   - `approver_python_examples_guide`
    - `notify_python_code_guide`
+   - `notify_python_examples_guide`
 3. فیلدهای کد:
    - `python_code` برای Approver
    - `notify_python_code` برای Notify
@@ -15,9 +21,11 @@
 
 ## فیلدهای جدید مدل
 - `approver_python_code_guide` (Text, compute, readonly)
+- `approver_python_examples_guide` (Text, compute, readonly)
 - `notify_python_code_guide` (Text, compute, readonly)
+- `notify_python_examples_guide` (Text, compute, readonly)
 
-هر دو در متد `_compute_python_code_guides` مقداردهی می‌شوند.
+این چهار فیلد در متد `_compute_python_code_guides` مقداردهی می‌شوند.
 
 ---
 

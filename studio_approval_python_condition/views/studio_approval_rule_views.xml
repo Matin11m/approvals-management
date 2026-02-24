@@ -9,12 +9,14 @@
                     <page string="Approver Python">
                         <group col="1">
                             <field name="approver_python_code_guide" widget="text" readonly="1" nolabel="1" class="text-muted"/>
+                            <field name="approver_python_examples_guide" widget="text" readonly="1" nolabel="1" class="text-muted"/>
                             <field name="python_code" widget="text" placeholder="result = record.user_id"/>
                         </group>
                     </page>
                     <page string="Notify Python">
                         <group col="1">
                             <field name="notify_python_code_guide" widget="text" readonly="1" nolabel="1" class="text-muted"/>
+                            <field name="notify_python_examples_guide" widget="text" readonly="1" nolabel="1" class="text-muted"/>
                             <field name="notify_python_code" widget="text" placeholder="result = record.team_id.member_ids"/>
                         </group>
                     </page>

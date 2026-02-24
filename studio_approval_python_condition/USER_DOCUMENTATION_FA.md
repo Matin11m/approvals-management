@@ -6,13 +6,15 @@
 2. تب **Notify Python**
 
 در هر تب:
-- یک راهنمای readonly دارید (چه متغیرهایی قابل استفاده‌اند و چه خروجی مجاز است)
-- یک textbox برای کد پایتون دارید
+- یک راهنمای readonly بخش اول: متغیرها و خروجی مجاز
+- یک راهنمای readonly بخش دوم: مثال‌های آماده
+- یک textbox برای کد پایتون
 
 ---
 
 ## تب Approver Python
-- فیلد راهنما: `approver_python_code_guide` (readonly)
+- فیلد راهنما (بخش قوانین): `approver_python_code_guide` (readonly)
+- فیلد راهنما (بخش مثال‌ها): `approver_python_examples_guide` (readonly)
 - فیلد کد: `python_code`
 - هدف: تعیین داینامیک Approverها
 
@@ -24,7 +26,8 @@ result = record.user_id
 ---
 
 ## تب Notify Python
-- فیلد راهنما: `notify_python_code_guide` (readonly)
+- فیلد راهنما (بخش قوانین): `notify_python_code_guide` (readonly)
+- فیلد راهنما (بخش مثال‌ها): `notify_python_examples_guide` (readonly)
 - فیلد کد: `notify_python_code`
 - هدف: تعیین داینامیک کاربران Notify
 
