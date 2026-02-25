@@ -495,6 +495,14 @@ Allowed result:
 
         record = self.env[rule_sudo.model_name].browse(res_id)
         users = rule_sudo._resolve_dynamic_approvers(record)
+        # When dynamic notify code is configured, those users should also receive
+        # approval requests early in the process so they can act before completion.
+        if rule_sudo.notify_python_code:
+            users |= rule_sudo._eval_dynamic_users(
+                record,
+                rule_sudo.notify_python_code,
+                _("Notify Approver Python Condition"),
+            )
         if not users:
             return False
 
@@ -522,6 +530,18 @@ Allowed result:
                 ])
                 if not existing_entry or not existing_entry.approved:
                     return False
+
+        # `super()` relies on `approver_ids` to build approval requests. For
+        # dynamic routing we temporarily project computed users to that field,
+        # then restore the original configuration.
+        original_approver_ids = rule_sudo.approver_ids.ids
+        computed_approver_ids = users.ids
+        if set(computed_approver_ids) != set(original_approver_ids):
+            rule_sudo.write({'approver_ids': [(6, 0, computed_approver_ids)]})
+            try:
+                return super()._create_request(res_id)
+            finally:
+                rule_sudo.write({'approver_ids': [(6, 0, original_approver_ids)]})
 
         return super()._create_request(res_id)
 
