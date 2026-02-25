@@ -16,3 +16,12 @@
 
 ## نکته سازگاری Owl
 در `_get_approval_spec` و `check_approval` ابتدا `super()` صدا زده می‌شود تا payload استاندارد کلاینت حفظ شود.
+
+
+## نکته Odoo 19 برای `pre_init_hook`
+در Odoo 19، `pre_init_hook` ممکن است به‌جای cursor، آبجکت `Environment` دریافت کند.
+به همین دلیل در hook از الگوی سازگار استفاده شده:
+- اگر `env` آمد: از `env.cr`
+- اگر `cr` آمد: مستقیم از همان
+
+این کار خطای `AttributeError: 'Environment' object has no attribute 'execute'` را رفع می‌کند.
