@@ -1,18 +1,18 @@
-# راهنمای کاربر (فارسی) — تب‌های Approver/Notify Python
+# راهنمای کاربر (فارسی) — بخش‌های Approver/Notify Python
 
 ## تغییر جدید UI
-در فرم Rule، بعد از `domain` یک بخش تب‌دار اضافه شده است:
-1. تب **Approver Python**
-2. تب **Notify Python**
+در فرم Rule، بعد از `domain` یک بخش‌بندی‌شده اضافه شده است:
+1. بخش **Approver Python**
+2. بخش **Notify Python**
 
-در هر تب:
+در هر بخش:
 - یک راهنمای readonly بخش اول: متغیرها و خروجی مجاز
 - یک راهنمای readonly بخش دوم: مثال‌های آماده
 - یک textbox برای کد پایتون
 
 ---
 
-## تب Approver Python
+## بخش Approver Python
 - فیلد راهنما (بخش قوانین): `approver_python_code_guide` (readonly)
 - فیلد راهنما (بخش مثال‌ها): `approver_python_examples_guide` (readonly)
 - فیلد کد: `python_code`
@@ -25,7 +25,7 @@ result = record.user_id
 
 ---
 
-## تب Notify Python
+## بخش Notify Python
 - فیلد راهنما (بخش قوانین): `notify_python_code_guide` (readonly)
 - فیلد راهنما (بخش مثال‌ها): `notify_python_examples_guide` (readonly)
 - فیلد کد: `notify_python_code`
@@ -38,7 +38,7 @@ result = record.team_id.member_ids
 
 ---
 
-## متغیرهای قابل استفاده در هر دو تب
+## متغیرهای قابل استفاده در هر دو بخش
 - `env`
 - `user`
 - `record`
