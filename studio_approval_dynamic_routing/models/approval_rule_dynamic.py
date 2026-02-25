@@ -225,7 +225,8 @@ Allowed result:
         if not group_field:
             raise UserError(_("No group approval field was found on this rule to sync dynamic approvers."))
 
-        candidate_groups = users.mapped("groups_id")
+        user_group_field = "groups_id" if "groups_id" in users._fields else "group_ids"
+        candidate_groups = users.mapped(user_group_field)
         if not candidate_groups:
             raise UserError(_("Dynamic approvers do not belong to any group to fill Group Approval."))
 
