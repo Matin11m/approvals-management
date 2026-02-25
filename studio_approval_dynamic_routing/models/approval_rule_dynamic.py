@@ -190,17 +190,18 @@ Allowed result:
             return self._eval_dynamic_users(record, self.notify_python_code, _("Notify Approver Python Condition"))
         return self.users_to_notify
 
-
     def _get_dynamic_group_field(self):
         """Return group-approval field metadata when available on rule model."""
         self.ensure_one()
-        preferred_names = ["approval_group_id", "approver_group_id", "group_id", "group_ids"]
+        preferred_names = ("approval_group_id", "approver_group_id", "group_id", "group_ids")
+        fields_map = self._fields
+
         for field_name in preferred_names:
-            field = self._fields.get(field_name)
+            field = fields_map.get(field_name)
             if field and getattr(field, "comodel_name", None) == "res.groups":
                 return field_name, field
 
-        for field_name, field in self._fields.items():
+        for field_name, field in fields_map.items():
             if getattr(field, "comodel_name", None) != "res.groups":
                 continue
             if field.type not in ("many2one", "many2many"):
@@ -228,9 +229,10 @@ Allowed result:
         if not candidate_groups:
             raise UserError(_("Dynamic approvers do not belong to any group to fill Group Approval."))
 
-        if group_field.type == "many2one":
+        group_field_type = group_field.type
+        if group_field_type == "many2one":
             self.write({group_field_name: candidate_groups[0].id})
-        elif group_field.type == "many2many":
+        elif group_field_type == "many2many":
             self.write({group_field_name: [(6, 0, candidate_groups.ids)]})
         else:
             raise UserError(_("Unsupported Group Approval field type for dynamic sync."))
@@ -560,10 +562,13 @@ Allowed result:
         if not users:
             return False
 
-        requests = self.env['studio.approval.request'].sudo().search(
-            [('rule_id', '=', self.id), ('res_id', '=', res_id)])
+        requests = self.env['studio.approval.request'].sudo().search([
+            ('rule_id', '=', self.id),
+            ('res_id', '=', res_id),
+        ])
         if requests:
             return False
+
         if self.notification_order != '1':
             entry_sudo = self.env["studio.approval.entry"].sudo()
             for approval_rule in rule_sudo.search([
