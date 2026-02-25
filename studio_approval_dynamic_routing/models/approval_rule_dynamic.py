@@ -135,11 +135,15 @@ Allowed result:
             if value._name != "res.users":
                 raise UserError(_("Python code result must be res.users, ids list, or id."))
             return value.ids
+        if isinstance(value, bool):
+            raise UserError(_("Python code result must be user id(s) or res.users; boolean is not allowed."))
         if isinstance(value, int):
             return [value]
         if isinstance(value, (list, tuple, set)):
             user_ids = []
             for item in value:
+                if isinstance(item, bool):
+                    raise UserError(_("Python code result list cannot contain boolean values."))
                 if isinstance(item, int):
                     user_ids.append(item)
                 elif isinstance(item, models.Model) and item._name == "res.users":
@@ -494,6 +498,9 @@ Allowed result:
             return False
 
         record = self.env[rule_sudo.model_name].browse(res_id)
+        if not rule_sudo._match_rule_with_python(record, rule_sudo.domain, rule_sudo.python_code):
+            return False
+
         users = rule_sudo._resolve_dynamic_approvers(record)
         # When dynamic notify code is configured, those users should also receive
         # approval requests early in the process so they can act before completion.
