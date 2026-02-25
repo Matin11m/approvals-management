@@ -74,7 +74,8 @@ ALTER TABLE studio_approval_rule ADD COLUMN IF NOT EXISTS notify_python_examples
 اگر در UI این خطا را دیدید، معمولاً به‌خاطر این است که در خروجی `_get_approval_spec` مقادیر `approver_ids/users_to_notify` به ids داینامیکی تغییر کرده‌اند که در مپ کاربر سمت کلاینت preload نشده‌اند.
 
 در این ماژول برای جلوگیری از این خطا:
-- خروجی `approver_ids/users_to_notify` در `_get_approval_spec` دستکاری per-record نمی‌شود.
+- `_get_approval_spec` و `check_approval` ابتدا از `super()` استفاده می‌کنند تا payload استاندارد و سازگار با Owl ساخته شود.
+- سپس فقط فیلتر `python_code` روی همان خروجی استاندارد اعمال می‌شود.
 - resolve داینامیک کاربران فقط در مسیرهای backend (ایجاد request و notify واقعی) انجام می‌شود.
 
 
