@@ -25,3 +25,10 @@
 - اگر `cr` آمد: مستقیم از همان
 
 این کار خطای `AttributeError: 'Environment' object has no attribute 'execute'` را رفع می‌کند.
+
+
+## فایل مرجع پیاده‌سازی
+در این ماژول، فایل مرجع و نهایی منطق فقط این فایل است:
+- `models/approval_rule_dynamic.py`
+
+یعنی تمام overrideها و helperها از همین فایل لود می‌شوند و کد موازی دیگری نگه‌داری نمی‌شود.

@@ -5,7 +5,6 @@ from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 from odoo.tools.safe_eval import safe_eval
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -119,12 +118,14 @@ Allowed result:
             "record": record,
             "rule": self,
             "result": True,
+            "UserError": UserError,
         }
         try:
-            safe_eval(python_code, localdict, mode="exec", nocopy=True)
+            safe_eval(python_code, localdict, mode="exec")
         except Exception as error:
             _logger.exception("Error while evaluating python condition for approval rule %s", self.id)
-            raise UserError(_("Error in python condition for rule '%(rule)s': %(error)s", rule=self.display_name, error=error))
+            raise UserError(
+                _("Error in python condition for rule '%(rule)s': %(error)s", rule=self.display_name, error=error))
         return bool(localdict.get("result"))
 
     def _normalize_dynamic_user_ids(self, value):
@@ -158,12 +159,15 @@ Allowed result:
             "record": record,
             "rule": self,
             "result": [],
+            "UserError": UserError,
         }
         try:
-            safe_eval(code, localdict, mode="exec", nocopy=True)
+            safe_eval(code, localdict, mode="exec")
         except Exception as error:
             _logger.exception("Error while evaluating %s for approval rule %s", field_label, self.id)
-            raise UserError(_("Error in %(field)s for rule '%(rule)s': %(error)s", field=field_label, rule=self.display_name, error=error))
+            raise UserError(
+                _("Error in %(field)s for rule '%(rule)s': %(error)s", field=field_label, rule=self.display_name,
+                  error=error))
 
         user_ids = self._normalize_dynamic_user_ids(localdict.get("result"))
         if not user_ids:
@@ -185,53 +189,188 @@ Allowed result:
     @api.model
     def _get_approval_spec(self, model, spec):
         model_name, map_rules, results = super()._get_approval_spec(model, spec)
+
+        def _payload_id(x):
+            """x can be an int id or a dict containing an 'id'."""
+            if isinstance(x, int):
+                return x
+            if isinstance(x, dict):
+                return x.get("id")
+            return None
+
+        def _entry_rule_id(entry):
+            """
+            entry can be:
+              - dict with 'rule_id' as [id, name] (many2one style)
+              - dict with 'rule_id' as int (rare)
+              - int (entry id)  -> we won't be able to filter safely without reading it
+            """
+            if not isinstance(entry, dict):
+                return None
+            rid = entry.get("rule_id")
+            if isinstance(rid, (list, tuple)) and rid:
+                return rid[0]
+            if isinstance(rid, int):
+                return rid
+            return None
+
         for key, bucket in list(results.items()):
             res_id = key[0]
             if not res_id:
                 continue
+
             record = self.env[model].browse(res_id)
-            filtered_rules = []
-            for rule_data in bucket.get("rules", []):
-                rule = self.browse(rule_data["id"])
-                if rule._match_rule_with_python(record, rule_data.get("domain"), rule_data.get("python_code")):
-                    filtered_rules.append(rule_data)
-            if filtered_rules:
-                bucket["rules"] = filtered_rules
-                valid_rule_ids = {r["id"] for r in filtered_rules}
-                bucket["entries"] = [
-                    entry for entry in bucket.get("entries", [])
-                    if entry.get("rule_id") and entry["rule_id"][0] in valid_rule_ids
-                ]
-            else:
+
+            # --- filter rules (bucket['rules'] can contain dicts or ints) ---
+            filtered_rules_payload = []
+            valid_rule_ids = set()
+
+            for rule_data in bucket.get("rules", []) or []:
+                rid = _payload_id(rule_data)
+                if not rid:
+                    continue
+
+                rule = self.browse(rid)
+                # IMPORTANT: read domain/python_code from the rule record (not from payload)
+                if rule._match_rule_with_python(record, rule.domain, rule.python_code):
+                    filtered_rules_payload.append(rule_data)
+                    valid_rule_ids.add(rid)
+
+            if not filtered_rules_payload:
                 results.pop(key, None)
+                continue
+
+            bucket["rules"] = filtered_rules_payload
+
+            # --- filter entries safely when entry is a dict (keep ints as-is to avoid breaking) ---
+            new_entries = []
+            for entry in bucket.get("entries", []) or []:
+                erid = _entry_rule_id(entry)
+                if erid is None:
+                    # If entry isn't a dict (e.g., it's an int), we keep it to avoid
+                    # accidentally dropping required entries without being able to inspect.
+                    new_entries.append(entry)
+                    continue
+                if erid in valid_rule_ids:
+                    new_entries.append(entry)
+
+            bucket["entries"] = new_entries
+
         return model_name, map_rules, results
+
+    # @api.model
+    # def _get_approval_spec(self, model, spec):
+    #     model_name, map_rules, results = super()._get_approval_spec(model, spec)
+    #     for key, bucket in list(results.items()):
+    #         res_id = key[0]
+    #         if not res_id:
+    #             continue
+    #         record = self.env[model].browse(res_id)
+    #         filtered_rules = []
+    #         for rule_data in bucket.get("rules", []):
+    #             rule = self.browse(rule_data["id"])
+    #             if rule._match_rule_with_python(record, rule_data.get("domain"), rule_data.get("python_code")):
+    #                 filtered_rules.append(rule_data)
+    #         if filtered_rules:
+    #             bucket["rules"] = filtered_rules
+    #             valid_rule_ids = {r["id"] for r in filtered_rules}
+    #             bucket["entries"] = [
+    #                 entry for entry in bucket.get("entries", [])
+    #                 if entry.get("rule_id") and entry["rule_id"][0] in valid_rule_ids
+    #             ]
+    #         else:
+    #             results.pop(key, None)
+    #     return model_name, map_rules, results
 
     @api.model
     def check_approval(self, model, res_id, method, action_id):
         result = super().check_approval(model, res_id, method, action_id)
-        if not result.get("rules"):
+
+        rules_payload = result.get("rules") or []
+        if not rules_payload:
             return result
 
         record = self.env[model].browse(res_id)
-        filtered_rules = []
-        for rule_data in result.get("rules", []):
-            rule = self.browse(rule_data["id"])
-            if rule._match_rule_with_python(record, rule_data.get("domain"), rule_data.get("python_code")):
-                filtered_rules.append(rule_data)
 
-        valid_rule_ids = {rule["id"] for rule in filtered_rules}
-        result["rules"] = filtered_rules
-        result["entries"] = [
-            entry for entry in result.get("entries", [])
-            if entry.get("rule_id") and entry["rule_id"][0] in valid_rule_ids
-        ]
-        if not filtered_rules:
+        def _payload_id(x):
+            """x can be int (id) or dict with key 'id'."""
+            if isinstance(x, int):
+                return x
+            if isinstance(x, dict):
+                return x.get("id")
+            return None
+
+        Entry = self.env["studio.approval.entry"]
+
+        def _entry_rule_id(entry):
+            """Return rule_id (int) for entry payload (dict/int), or None."""
+            if isinstance(entry, int):
+                e = Entry.browse(entry)
+                return e.rule_id.id if e.exists() and e.rule_id else None
+
+            if isinstance(entry, dict):
+                rid = entry.get("rule_id")
+                # many2one payload style: [id, name]
+                if isinstance(rid, (list, tuple)) and rid:
+                    return rid[0]
+                # sometimes it can already be int
+                if isinstance(rid, int):
+                    return rid
+            return None
+
+        def _entry_is_approved(entry):
+            """Return approved flag for entry payload (dict/int)."""
+            if isinstance(entry, int):
+                e = Entry.browse(entry)
+                # در نسخه‌های مختلف ممکنه فیلدها فرق کنه؛ ولی معمولاً 'approved' هست
+                return bool(getattr(e, "approved", False)) if e.exists() else False
+
+            if isinstance(entry, dict):
+                # معمولاً کلید 'approved' هست
+                return bool(entry.get("approved"))
+            return False
+
+        # 1) Filter rules based on python condition (ALWAYS read from rule record)
+        filtered_rules_payload = []
+        valid_rule_ids = set()
+
+        for rule_data in rules_payload:
+            rid = _payload_id(rule_data)
+            if not rid:
+                continue
+            rule = self.browse(rid)
+            if rule._match_rule_with_python(record, rule.domain, rule.python_code):
+                filtered_rules_payload.append(rule_data)
+                valid_rule_ids.add(rid)
+
+        if not filtered_rules_payload:
+            # If no rules remain after filtering, treat as approved
             return {"approved": True, "rules": [], "entries": []}
 
-        approved_by_rule = {rule_id: False for rule_id in valid_rule_ids}
-        for entry in result["entries"]:
-            if entry.get("rule_id") and entry["rule_id"][0] in approved_by_rule:
-                approved_by_rule[entry["rule_id"][0]] = bool(entry.get("approved"))
+        result["rules"] = filtered_rules_payload
+
+        # 2) Filter entries so only entries belonging to remaining rules stay
+        entries_payload = result.get("entries") or []
+        filtered_entries = []
+        for entry in entries_payload:
+            erid = _entry_rule_id(entry)
+            if erid is None:
+                # اگر نتونستیم rule_id رو بفهمیم، برای جلوگیری از رفتار غیرمنتظره نگه می‌داریم
+                # (می‌تونی اگر خواستی strict کنی، اینجا drop کنی)
+                filtered_entries.append(entry)
+                continue
+            if erid in valid_rule_ids:
+                filtered_entries.append(entry)
+
+        result["entries"] = filtered_entries
+
+        # 3) Compute approved status per remaining rule
+        approved_by_rule = {rid: False for rid in valid_rule_ids}
+        for entry in filtered_entries:
+            erid = _entry_rule_id(entry)
+            if erid in approved_by_rule:
+                approved_by_rule[erid] = _entry_is_approved(entry)
+
         result["approved"] = all(approved_by_rule.values())
         return result
 
@@ -255,14 +394,16 @@ Allowed result:
 
             can_revoke = False
             for rule in rules_above:
-                if not self.browse(rule["id"])._match_rule_with_python(record, rule.get("domain"), rule.get("python_code")):
+                if not self.browse(rule["id"])._match_rule_with_python(record, rule.get("domain"),
+                                                                       rule.get("python_code")):
                     continue
                 if rule["can_validate"]:
                     can_revoke = True
                     break
 
             if not can_revoke:
-                raise UserError(_("You cannot cancel an approval you didn't set yourself or you don't belong to an higher level rule's approvers."))
+                raise UserError(
+                    _("You cannot cancel an approval you didn't set yourself or you don't belong to an higher level rule's approvers."))
         if not existing_entry:
             raise UserError(_("No approval found for this rule, record and user combination."))
         return existing_entry.unlink()
@@ -292,7 +433,8 @@ Allowed result:
         ])
         if other_entries:
             existing_rule_ids = other_entries.mapped('rule_id').ids
-            rule_limitation_msg = _('You can not approve this rule because another rule has already been approved/rejected.')
+            rule_limitation_msg = _(
+                'You can not approve this rule because another rule has already been approved/rejected.')
             if rule_sudo.exclusive_user:
                 if any(other_entries.filtered(lambda e: e.user_id == self.env.user)):
                     raise UserError(rule_limitation_msg)
@@ -322,7 +464,8 @@ Allowed result:
             ], ["domain", "python_code", "notify_python_code", "notification_order"]):
                 if rule["id"] == rule_sudo.id:
                     continue
-                if not self.browse(rule["id"])._match_rule_with_python(record, rule.get("domain"), rule.get("python_code")):
+                if not self.browse(rule["id"])._match_rule_with_python(record, rule.get("domain"),
+                                                                       rule.get("python_code")):
                     continue
                 if rule["notification_order"] == rule_sudo.notification_order:
                     same_level_rules.append(rule["id"])
@@ -355,7 +498,8 @@ Allowed result:
         if not users:
             return False
 
-        requests = self.env['studio.approval.request'].sudo().search([('rule_id', '=', self.id), ('res_id', '=', res_id)])
+        requests = self.env['studio.approval.request'].sudo().search(
+            [('rule_id', '=', self.id), ('res_id', '=', res_id)])
         if requests:
             return False
         if self.notification_order != '1':
