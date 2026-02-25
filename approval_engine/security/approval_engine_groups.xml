@@ -1,0 +1,15 @@
+<odoo>
+    <record id="group_approval_engine_user" model="res.groups">
+        <field name="name">Approval Engine User</field>
+    </record>
+
+    <record id="group_approval_engine_manager" model="res.groups">
+        <field name="name">Approval Engine Manager</field>
+        <field name="implied_ids" eval="[(4, ref('approval_engine.group_approval_engine_user'))]"/>
+    </record>
+
+    <!-- Ensure all internal users can see/use the app menus by default -->
+    <record id="base.group_user" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('approval_engine.group_approval_engine_user'))]"/>
+    </record>
+</odoo>

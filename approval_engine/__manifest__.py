@@ -1,0 +1,20 @@
+{
+    "name": "Approval Engine",
+    "summary": "Generic and configurable approval workflows across business models",
+    "version": "19.0.1.0.0",
+    "author": "Custom",
+    "website": "https://example.com",
+    "category": "Productivity",
+    "license": "LGPL-3",
+    "depends": ["base", "mail", "approvals"],
+    "data": [
+        "security/ir.model.access.csv",
+        "data/sequence.xml",
+        "data/bootstrap.xml",
+        "views/approval_template_views.xml",
+        "views/approval_request_views.xml",
+        "views/menus.xml",
+    ],
+    "installable": True,
+    "application": True,
+}

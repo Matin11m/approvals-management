@@ -1,0 +1,82 @@
+<odoo>
+    <record id="view_approval_engine_request_list" model="ir.ui.view">
+        <field name="name">approval.engine.request.list</field>
+        <field name="model">approval.engine.request</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="state"/>
+                <field name="template_id"/>
+                <field name="requester_id"/>
+                <field name="reference"/>
+                <field name="current_step_id"/>
+                <field name="company_id"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_approval_engine_request_form" model="ir.ui.view">
+        <field name="name">approval.engine.request.form</field>
+        <field name="model">approval.engine.request</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_submit" type="object" string="Submit" invisible="state not in ('draft', 'cancelled')" class="btn-primary"/>
+                    <button name="action_approve" type="object" string="Approve" invisible="state != 'waiting'" class="btn-primary"/>
+                    <button name="action_reject" type="object" string="Reject" invisible="state != 'waiting'" class="btn-secondary"/>
+                    <button name="action_cancel" type="object" string="Cancel" invisible="state not in ('draft', 'waiting')"/>
+                    <button name="action_execute_custom_python_rule" type="object" string="Run Python Rule" class="btn-secondary" invisible="python_rule_mode != 'manual'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,waiting,approved,rejected,cancelled"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name" readonly="1"/>
+                            <field name="template_id" readonly="state != 'draft'"/>
+                            <field name="requester_id" readonly="1"/>
+                            <field name="company_id"/>
+                        </group>
+                        <group>
+                            <field name="res_model" readonly="1"/>
+                            <field name="res_id" readonly="1"/>
+                            <field name="reference" readonly="1"/>
+                            <field name="current_step_id" readonly="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Logs">
+                            <field name="log_ids" readonly="1">
+                                <list>
+                                    <field name="create_date"/>
+                                    <field name="step_id"/>
+                                    <field name="user_id"/>
+                                    <field name="action"/>
+                                    <field name="comment"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Python Rules">
+                            <group>
+                                <group>
+                                    <field name="python_rule_mode"/>
+                                    <field name="python_last_result" readonly="1"/>
+                                </group>
+                            </group>
+                            <group>
+                                <field name="python_rule_code" widget="text" placeholder="result = record.amount_total &lt;= 10000&#10;message = 'Amount is over limit'"/>
+                                <field name="python_last_log" readonly="1"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_approval_engine_requests" model="ir.actions.act_window">
+        <field name="name">Approval Requests</field>
+        <field name="res_model">approval.engine.request</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>
