@@ -76,3 +76,14 @@ ALTER TABLE studio_approval_rule ADD COLUMN IF NOT EXISTS notify_python_examples
 در این ماژول برای جلوگیری از این خطا:
 - خروجی `approver_ids/users_to_notify` در `_get_approval_spec` دستکاری per-record نمی‌شود.
 - resolve داینامیک کاربران فقط در مسیرهای backend (ایجاد request و notify واقعی) انجام می‌شود.
+
+
+### رفع خطای نصب ماژول (قبل از upgrade)
+در بعضی دیتابیس‌ها، `web_studio` هنگام `register_hook` خیلی زود جدول `studio_approval_rule` را می‌خواند.
+اگر ستون‌های جدید (`python_code`, `notify_python_code`) هنوز ساخته نشده باشند، خطای `UndefinedColumn` رخ می‌دهد.
+
+برای حل پایدار این مشکل، در این ماژول `pre_init_hook` اضافه شده تا قبل از ادامه نصب/آپگرید، ستون‌ها با SQL زیر تضمین شوند:
+- `python_code`
+- `notify_python_code`
+
+بنابراین حتی اگر ترتیب بارگذاری باعث خواندن زودهنگام جدول شود، خطای نصب رخ نمی‌دهد.
