@@ -68,3 +68,11 @@ ALTER TABLE studio_approval_rule ADD COLUMN IF NOT EXISTS notify_python_examples
 ```
 
 > نکته: روش صحیح و پایدار همان upgrade ماژول است.
+
+
+### رفع خطای Odoo Client (OwlError / Cannot read properties of undefined (reading 'id'))
+اگر در UI این خطا را دیدید، معمولاً به‌خاطر این است که در خروجی `_get_approval_spec` مقادیر `approver_ids/users_to_notify` به ids داینامیکی تغییر کرده‌اند که در مپ کاربر سمت کلاینت preload نشده‌اند.
+
+در این ماژول برای جلوگیری از این خطا:
+- خروجی `approver_ids/users_to_notify` در `_get_approval_spec` دستکاری per-record نمی‌شود.
+- resolve داینامیک کاربران فقط در مسیرهای backend (ایجاد request و notify واقعی) انجام می‌شود.

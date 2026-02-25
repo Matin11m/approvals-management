@@ -359,8 +359,6 @@ Allowed result:
                 key = (record_id, rule["method"], m2o_to_id(rule["action_id"]))
                 record = records_for_rule.browse(record_id)
                 rule_data = dict(rule)
-                rule_data["approver_ids"] = self.browse(rule["id"])._get_rule_approvers(record).ids
-                rule_data["users_to_notify"] = self.browse(rule["id"])._get_rule_notify_users(record).ids
                 results[key].setdefault("rules", []).append(rule_data)
                 results[key].setdefault("entries", [])
 
