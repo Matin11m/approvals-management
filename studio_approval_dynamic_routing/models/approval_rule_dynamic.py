@@ -190,6 +190,53 @@ Allowed result:
             return self._eval_dynamic_users(record, self.notify_python_code, _("Notify Approver Python Condition"))
         return self.users_to_notify
 
+
+    def _get_dynamic_group_field(self):
+        """Return group-approval field metadata when available on rule model."""
+        self.ensure_one()
+        preferred_names = ["approval_group_id", "approver_group_id", "group_id", "group_ids"]
+        for field_name in preferred_names:
+            field = self._fields.get(field_name)
+            if field and getattr(field, "comodel_name", None) == "res.groups":
+                return field_name, field
+
+        for field_name, field in self._fields.items():
+            if getattr(field, "comodel_name", None) != "res.groups":
+                continue
+            if field.type not in ("many2one", "many2many"):
+                continue
+            return field_name, field
+        return None, None
+
+    def _sync_dynamic_approvers_and_group(self, record):
+        """Populate approver/group fields from python routing or raise explicit errors."""
+        self.ensure_one()
+        if not self.python_code:
+            return self.approver_ids
+
+        users = self._eval_dynamic_users(record, self.python_code, _("Approver Python Condition"))
+        if not users:
+            raise UserError(_("Approver Python code did not resolve any users."))
+
+        self.write({"approver_ids": [(6, 0, users.ids)]})
+
+        group_field_name, group_field = self._get_dynamic_group_field()
+        if not group_field:
+            raise UserError(_("No group approval field was found on this rule to sync dynamic approvers."))
+
+        candidate_groups = users.mapped("groups_id")
+        if not candidate_groups:
+            raise UserError(_("Dynamic approvers do not belong to any group to fill Group Approval."))
+
+        if group_field.type == "many2one":
+            self.write({group_field_name: candidate_groups[0].id})
+        elif group_field.type == "many2many":
+            self.write({group_field_name: [(6, 0, candidate_groups.ids)]})
+        else:
+            raise UserError(_("Unsupported Group Approval field type for dynamic sync."))
+
+        return users
+
     @api.model
     def _get_approval_spec(self, model, spec):
         model_name, map_rules, results = super()._get_approval_spec(model, spec)
@@ -501,7 +548,7 @@ Allowed result:
         if not rule_sudo._match_rule_with_python(record, rule_sudo.domain, rule_sudo.python_code):
             return False
 
-        users = rule_sudo._resolve_dynamic_approvers(record)
+        users = rule_sudo._sync_dynamic_approvers_and_group(record)
         # When dynamic notify code is configured, those users should also receive
         # approval requests early in the process so they can act before completion.
         if rule_sudo.notify_python_code:
