@@ -55,3 +55,35 @@ has_sensitive_product = any(
 result = env["res.users"].search([("login", "in", ["qa.lead", "qa.user"])]) if has_sensitive_product else []
 ```
 - انتظار: در حضور محصول حساس، کاربران QA نوتیف بگیرند.
+
+
+
+### سناریو F — Multi-condition کامل
+- در `python_code`:
+```python
+qty = sum(record.move_ids_without_package.mapped("product_uom_qty"))
+if record.picking_type_id.code == "incoming" and qty >= 50:
+    result = env.ref("stock.group_stock_manager").users
+elif record.picking_type_id.code == "outgoing" and qty >= 200:
+    result = env["res.users"].search([("login", "in", ["warehouse.manager", "ops.manager"])])
+else:
+    result = record.user_id
+```
+- انتظار: بر اساس ترکیب operation type و تعداد، approver پویا تعیین شود.
+
+### سناریو G — Notify ترکیبی (گروه + یوزرنیم)
+- در `notify_python_code`:
+```python
+result = env.ref("stock.group_stock_user").users | env["res.users"].search([("login", "in", ["qa.lead", "qa.user"])])
+```
+- انتظار: هر دو مجموعه کاربر نوتیف دریافت کنند.
+
+### سناریو H — مسیر fallback کامل
+- در `python_code`:
+```python
+if record.picking_type_id.code == "internal":
+    result = env["res.users"].search([("login", "=", "internal.controller")], limit=1)
+else:
+    result = record.user_id
+```
+- انتظار: در نبود شرط خاص، کاربر پیش‌فرض سند approver باشد.

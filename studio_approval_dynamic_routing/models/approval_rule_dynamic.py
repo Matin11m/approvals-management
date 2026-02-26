@@ -14,42 +14,66 @@ class StudioApprovalRuleDynamic(models.Model):
     _APPROVER_GUIDE_MAIN = _(
         """Approver Python Guide
 Variables:
-- env
-- user
-- record
-- rule
-- result
+- env (full Odoo env)
+- user (current user)
+- record (target document)
+- rule (current approval rule)
+- result (required output)
+
+How to resolve users:
+- env["res.users"].search([...])
+- env.ref("module.xml_id").users
+- record.<user_field> (for example: record.user_id)
 
 Allowed result:
 - res.users recordset
 - user id (int)
-- list/tuple/set of user ids"""
+- list/tuple/set of user ids
+
+Notes:
+- You can define multiple if/elif conditions.
+- Boolean result is not allowed."""
     )
     _APPROVER_GUIDE_EXAMPLES = _(
         """Approver Examples
 - result = record.user_id
-- result = [env.user.id]
-- result = record.team_id.user_id"""
+- result = env["res.users"].search([("login", "=", "warehouse.manager")], limit=1)
+- if record.picking_type_id.code == "incoming":
+    result = env.ref("stock.group_stock_manager").users
+  else:
+    result = record.user_id"""
     )
     _NOTIFY_GUIDE_MAIN = _(
         """Notify Python Guide
 Variables:
-- env
-- user
-- record
-- rule
-- result
+- env (full Odoo env)
+- user (current user)
+- record (target document)
+- rule (current approval rule)
+- result (required output)
+
+How to resolve users:
+- env["res.users"].search([...])
+- env.ref("module.xml_id").users
+- record.<users_field>
 
 Allowed result:
 - res.users recordset
 - user id (int)
-- list/tuple/set of user ids"""
+- list/tuple/set of user ids
+
+Notes:
+- You can define multiple if/elif conditions.
+- Boolean result is not allowed."""
     )
     _NOTIFY_GUIDE_EXAMPLES = _(
         """Notify Examples
 - result = record.team_id.member_ids
-- result = [record.user_id.id]
-- result = env.user"""
+- result = env["res.users"].search([("login", "in", ["qa.lead", "qa.user"])])
+- if record.picking_type_id.code == "outgoing":
+    result = env.ref("stock.group_stock_user").users
+  else:
+    result = []"""
     )
 
     python_code = fields.Text(
