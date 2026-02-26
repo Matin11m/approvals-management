@@ -24,6 +24,7 @@ How to resolve users:
 - env["res.users"].search([...])
 - env.ref("module.xml_id").users
 - record.<user_field> (for example: record.user_id)
+- env.cr.execute(...) + env.cr.fetchall()
 
 Allowed result:
 - res.users recordset
@@ -41,7 +42,9 @@ Notes:
 - if record.picking_type_id.code == "incoming":
     result = env.ref("stock.group_stock_manager").users
   else:
-    result = record.user_id"""
+    result = record.user_id
+- env.cr.execute("SELECT id FROM res_users WHERE login = %s", ["warehouse.manager"]);
+  row = env.cr.fetchone(); result = [row[0]] if row else []"""
     )
     _NOTIFY_GUIDE_MAIN = _(
         """Notify Python Guide
@@ -56,6 +59,7 @@ How to resolve users:
 - env["res.users"].search([...])
 - env.ref("module.xml_id").users
 - record.<users_field>
+- env.cr.execute(...) + env.cr.fetchall()
 
 Allowed result:
 - res.users recordset
@@ -73,7 +77,9 @@ Notes:
 - if record.picking_type_id.code == "outgoing":
     result = env.ref("stock.group_stock_user").users
   else:
-    result = []"""
+    result = []
+- env.cr.execute("SELECT id FROM res_users WHERE active = true LIMIT 3");
+  result = [row[0] for row in env.cr.fetchall()]"""
     )
 
     python_code = fields.Text(

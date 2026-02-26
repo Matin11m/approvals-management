@@ -179,3 +179,48 @@ else:
 - حتماً در همه مسیرها (`if/elif/else`) مقدار `result` را ست کنید.
 - از برگرداندن مقدار `True/False` خودداری کنید.
 - برای debug سریع، از شرط‌های ساده شروع کنید و مرحله‌ای پیچیده‌ترش کنید.
+
+
+### الگوی SQL برای پیدا کردن Approver/Notify
+> بله، می‌توانید با `env.cr` کوئری SQL بزنید و خروجی را به `result` تبدیل کنید.
+> خروجی SQL را به یکی از فرمت‌های معتبر تبدیل کنید (لیست id یا `res.users`).
+
+```python
+# Approver با SQL
+env.cr.execute("""
+    SELECT id
+    FROM res_users
+    WHERE active = true
+      AND login IN %s
+""", [("warehouse.manager", "stock.supervisor")])
+user_ids = [row[0] for row in env.cr.fetchall()]
+result = user_ids
+```
+
+```python
+# Notify با SQL بر اساس گروه انبار
+env.cr.execute("""
+    SELECT ru.id
+    FROM res_users ru
+    JOIN res_groups_users_rel rel ON rel.uid = ru.id
+    JOIN ir_model_data imd ON imd.res_id = rel.gid
+    JOIN ir_module_module mod ON mod.name = imd.module
+    WHERE imd.model = 'res.groups'
+      AND imd.name = 'group_stock_user'
+      AND mod.state = 'installed'
+""")
+result = [row[0] for row in env.cr.fetchall()]
+```
+
+```python
+# ترکیب SQL + ORM
+env.cr.execute("SELECT id FROM res_users WHERE login = %s", ["qa.lead"])
+sql_ids = [r[0] for r in env.cr.fetchall()]
+orm_users = env.ref("stock.group_stock_manager").users
+result = env["res.users"].browse(sql_ids) | orm_users
+```
+
+### نکات ایمنی SQL
+- فقط `SELECT` بزنید (برای این use-case نیازی به INSERT/UPDATE/DELETE نیست).
+- حتماً از پارامترگذاری استفاده کنید (`%s`) و رشته را مستقیم concat نکنید.
+- اگر رکوردی پیدا نشد، `result = []` بدهید تا خطای type نگیرید.

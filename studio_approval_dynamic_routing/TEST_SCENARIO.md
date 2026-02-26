@@ -87,3 +87,27 @@ else:
     result = record.user_id
 ```
 - انتظار: در نبود شرط خاص، کاربر پیش‌فرض سند approver باشد.
+
+
+### سناریو I — Approver با SQL
+- در `python_code`:
+```python
+env.cr.execute("SELECT id FROM res_users WHERE login = %s", ["warehouse.manager"])
+row = env.cr.fetchone()
+result = [row[0]] if row else []
+```
+- انتظار: اگر کاربر وجود داشت request برای همان کاربر ساخته شود.
+
+### سناریو J — Notify با SQL + چند کاربر
+- در `notify_python_code`:
+```python
+env.cr.execute("""
+    SELECT id
+    FROM res_users
+    WHERE active = true
+    ORDER BY id
+    LIMIT 5
+""")
+result = [row[0] for row in env.cr.fetchall()]
+```
+- انتظار: ۵ کاربر اول active نوتیف دریافت کنند و وارد session approval شوند.
