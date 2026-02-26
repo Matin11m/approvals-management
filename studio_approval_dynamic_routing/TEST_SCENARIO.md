@@ -1,105 +1,168 @@
 # سناریوی تست — Studio Approval Dynamic Routing
 
+## پیش‌نیاز
 1. نصب ماژول `studio_approval_dynamic_routing`.
-2. باز کردن فرم Rule و بررسی نمایش دو بخش Approver/Notify.
-3. ثبت `python_code = result = record.user_id` و بررسی ایجاد request برای approver درست.
-4. ثبت `notify_python_code = result = record.team_id.member_ids` و بررسی گیرنده‌های notify.
-5. تست syntax نامعتبر و مشاهده ValidationError.
-6. تست fallback با خالی‌گذاشتن دو فیلد.
+2. باز کردن فرم Rule در Studio Approval.
+3. اطمینان از نمایش دو فیلد:
+   - `python_code` (Approver Python Routing)
+   - `notify_python_code` (Notify Python Routing)
 
+---
 
-## سناریوهای تست پیشنهادی (کد آماده)
+## الگوی result در safe_eval (Odoo Python Code / Server Action style)
 
-### سناریو A — Operation Type = Receipt
-- در `python_code`:
+> در تمام سناریوها خروجی نهایی باید داخل متغیر `result` قرار بگیرد.
+
+```python
+# Pattern A: یک کاربر
+result = record.user_id
+
+# Pattern B: چند کاربر (recordset)
+result = env.ref("stock.group_stock_manager").users
+
+# Pattern C: لیست id
+result = [env.user.id]
+
+# Pattern D: خالی (بدون کاربر)
+result = []
+```
+
+**خروجی‌های معتبر `result`:**
+- `res.users` recordset
+- `int` (user id)
+- `list/tuple/set` از user ids
+
+**خروجی نامعتبر:**
+- `True` / `False`
+- لیستی که شامل boolean باشد
+
+---
+
+## سناریوها (همه بر اساس الگوی `result`)
+
+### سناریو A — Receipt Approver
+**فیلد هدف:** `python_code`
 ```python
 if record.picking_type_id.code == "incoming":
     result = env.ref("stock.group_stock_manager").users[:1]
 else:
     result = record.user_id
 ```
-- انتظار: برای Receipt، request برای مدیر انبار ساخته شود.
+**انتظار:** برای Receipt، approver از مدیر انبار resolve شود.
 
-### سناریو B — Operation Type = Delivery + Notify Team
-- در `notify_python_code`:
+---
+
+### سناریو B — Delivery Notify
+**فیلد هدف:** `notify_python_code`
 ```python
 if record.picking_type_id.code == "outgoing":
     result = env.ref("stock.group_stock_user").users
 else:
     result = []
 ```
-- انتظار: در Delivery، کاربران تیم انبار نوتیف بگیرند و به approval session ارجاع شوند.
+**انتظار:** برای Delivery، کاربران گروه انبار نوتیف بگیرند.
 
-### سناریو C — بر اساس Username
-- در `python_code`:
+---
+
+### سناریو C — Approver by Username
+**فیلد هدف:** `python_code`
 ```python
-result = env["res.users"].search([("login", "in", ["warehouse.manager", "stock.supervisor"])])
+result = env["res.users"].search([
+    ("login", "in", ["warehouse.manager", "stock.supervisor"])
+])
 ```
-- انتظار: فقط همین یوزرها امکان approve داشته باشند.
+**انتظار:** فقط کاربران با همین login به‌عنوان approver انتخاب شوند.
 
-### سناریو D — تعداد محصول بالا
-- در `python_code`:
+---
+
+### سناریو D — Approver by Quantity
+**فیلد هدف:** `python_code`
 ```python
 qty = sum(record.move_ids_without_package.mapped("product_uom_qty"))
-result = env.ref("stock.group_stock_manager").users if qty >= 100 else record.user_id
+if qty >= 100:
+    result = env.ref("stock.group_stock_manager").users
+else:
+    result = record.user_id
 ```
-- انتظار: اگر تعداد >= 100 بود approver به مدیر انبار تغییر کند.
+**انتظار:** برای qty بالا مسیر approval به مدیر انبار منتقل شود.
 
-### سناریو E — محصول حساس
-- در `notify_python_code`:
+---
+
+### سناریو E — Notify by Sensitive Product
+**فیلد هدف:** `notify_python_code`
 ```python
 has_sensitive_product = any(
     m.product_id.default_code in ["CHEM-001", "FRAGILE-01"]
     for m in record.move_ids_without_package
 )
-result = env["res.users"].search([("login", "in", ["qa.lead", "qa.user"])]) if has_sensitive_product else []
+if has_sensitive_product:
+    result = env["res.users"].search([
+        ("login", "in", ["qa.lead", "qa.user"])
+    ])
+else:
+    result = []
 ```
-- انتظار: در حضور محصول حساس، کاربران QA نوتیف بگیرند.
+**انتظار:** در حضور محصول حساس، فقط QA نوتیف دریافت کند.
 
+---
 
-
-### سناریو F — Multi-condition کامل
-- در `python_code`:
+### سناریو F — Multi-condition Approver
+**فیلد هدف:** `python_code`
 ```python
 qty = sum(record.move_ids_without_package.mapped("product_uom_qty"))
 if record.picking_type_id.code == "incoming" and qty >= 50:
     result = env.ref("stock.group_stock_manager").users
 elif record.picking_type_id.code == "outgoing" and qty >= 200:
-    result = env["res.users"].search([("login", "in", ["warehouse.manager", "ops.manager"])])
+    result = env["res.users"].search([
+        ("login", "in", ["warehouse.manager", "ops.manager"])
+    ])
 else:
     result = record.user_id
 ```
-- انتظار: بر اساس ترکیب operation type و تعداد، approver پویا تعیین شود.
+**انتظار:** خروجی approver بر اساس چند شرط همزمان تعیین شود.
 
-### سناریو G — Notify ترکیبی (گروه + یوزرنیم)
-- در `notify_python_code`:
+---
+
+### سناریو G — Combined Notify (Group + Username)
+**فیلد هدف:** `notify_python_code`
 ```python
-result = env.ref("stock.group_stock_user").users | env["res.users"].search([("login", "in", ["qa.lead", "qa.user"])])
+group_users = env.ref("stock.group_stock_user").users
+qa_users = env["res.users"].search([
+    ("login", "in", ["qa.lead", "qa.user"])
+])
+result = group_users | qa_users
 ```
-- انتظار: هر دو مجموعه کاربر نوتیف دریافت کنند.
+**انتظار:** هر دو مجموعه کاربر نوتیف دریافت کنند.
 
-### سناریو H — مسیر fallback کامل
-- در `python_code`:
+---
+
+### سناریو H — Fallback Approver
+**فیلد هدف:** `python_code`
 ```python
 if record.picking_type_id.code == "internal":
-    result = env["res.users"].search([("login", "=", "internal.controller")], limit=1)
+    result = env["res.users"].search([
+        ("login", "=", "internal.controller")
+    ], limit=1)
 else:
     result = record.user_id
 ```
-- انتظار: در نبود شرط خاص، کاربر پیش‌فرض سند approver باشد.
+**انتظار:** در حالت fallback، کاربر پیش‌فرض رکورد approver شود.
 
+---
 
-### سناریو I — Approver با SQL
-- در `python_code`:
+### سناریو I — SQL Approver
+**فیلد هدف:** `python_code`
 ```python
 env.cr.execute("SELECT id FROM res_users WHERE login = %s", ["warehouse.manager"])
 row = env.cr.fetchone()
 result = [row[0]] if row else []
 ```
-- انتظار: اگر کاربر وجود داشت request برای همان کاربر ساخته شود.
+**انتظار:** در صورت وجود کاربر، approver از SQL تعیین شود.
 
-### سناریو J — Notify با SQL + چند کاربر
-- در `notify_python_code`:
+---
+
+### سناریو J — SQL Notify (Multiple Users)
+**فیلد هدف:** `notify_python_code`
 ```python
 env.cr.execute("""
     SELECT id
@@ -110,4 +173,23 @@ env.cr.execute("""
 """)
 result = [row[0] for row in env.cr.fetchall()]
 ```
-- انتظار: ۵ کاربر اول active نوتیف دریافت کنند و وارد session approval شوند.
+**انتظار:** ۵ کاربر active نوتیف دریافت کنند.
+
+---
+
+## سناریوی اعتبارسنجی خطا
+
+### سناریو K — Boolean Result (نامعتبر)
+**فیلد هدف:** `python_code`
+```python
+result = True
+```
+**انتظار:** خطای اعتبارسنجی/اجرایی به‌علت نامعتبر بودن نوع خروجی `result`.
+
+### سناریو L — Syntax Error
+**فیلد هدف:** `notify_python_code`
+```python
+if record.picking_type_id.code == "incoming"
+    result = env.user
+```
+**انتظار:** `ValidationError` به‌دلیل syntax نامعتبر.
