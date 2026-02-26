@@ -497,7 +497,10 @@ Notes:
         if not self.env.context.get('prevent_approval_request_unlink'):
             rule_sudo._unlink_request(res_id)
 
-        if approved and rule_sudo.notification_order != '9':
+        # Keep approvals strictly step-by-step by default: one click approves
+        # only the current rule. Auto-chaining to higher levels can be enabled
+        # explicitly through context when needed.
+        if approved and rule_sudo.notification_order != '9' and self.env.context.get('allow_auto_chain_approval'):
             same_level_rules = []
             higher_level_rules = []
             for rule in rule_sudo.search_read([
