@@ -14,42 +14,72 @@ class StudioApprovalRuleDynamic(models.Model):
     _APPROVER_GUIDE_MAIN = _(
         """Approver Python Guide
 Variables:
-- env
-- user
-- record
-- rule
-- result
+- env (full Odoo env)
+- user (current user)
+- record (target document)
+- rule (current approval rule)
+- result (required output)
+
+How to resolve users:
+- env["res.users"].search([...])
+- env.ref("module.xml_id").users
+- record.<user_field> (for example: record.user_id)
+- env.cr.execute(...) + env.cr.fetchall()
 
 Allowed result:
 - res.users recordset
 - user id (int)
-- list/tuple/set of user ids"""
+- list/tuple/set of user ids
+
+Notes:
+- You can define multiple if/elif conditions.
+- Boolean result is not allowed."""
     )
     _APPROVER_GUIDE_EXAMPLES = _(
         """Approver Examples
 - result = record.user_id
-- result = [env.user.id]
-- result = record.team_id.user_id"""
+- result = env["res.users"].search([("login", "=", "warehouse.manager")], limit=1)
+- if record.picking_type_id.code == "incoming":
+    result = env.ref("stock.group_stock_manager").users
+  else:
+    result = record.user_id
+- env.cr.execute("SELECT id FROM res_users WHERE login = %s", ["warehouse.manager"]);
+  row = env.cr.fetchone(); result = [row[0]] if row else []"""
     )
     _NOTIFY_GUIDE_MAIN = _(
         """Notify Python Guide
 Variables:
-- env
-- user
-- record
-- rule
-- result
+- env (full Odoo env)
+- user (current user)
+- record (target document)
+- rule (current approval rule)
+- result (required output)
+
+How to resolve users:
+- env["res.users"].search([...])
+- env.ref("module.xml_id").users
+- record.<users_field>
+- env.cr.execute(...) + env.cr.fetchall()
 
 Allowed result:
 - res.users recordset
 - user id (int)
-- list/tuple/set of user ids"""
+- list/tuple/set of user ids
+
+Notes:
+- You can define multiple if/elif conditions.
+- Boolean result is not allowed."""
     )
     _NOTIFY_GUIDE_EXAMPLES = _(
         """Notify Examples
 - result = record.team_id.member_ids
-- result = [record.user_id.id]
-- result = env.user"""
+- result = env["res.users"].search([("login", "in", ["qa.lead", "qa.user"])])
+- if record.picking_type_id.code == "outgoing":
+    result = env.ref("stock.group_stock_user").users
+  else:
+    result = []
+- env.cr.execute("SELECT id FROM res_users WHERE active = true LIMIT 3");
+  result = [row[0] for row in env.cr.fetchall()]"""
     )
 
     python_code = fields.Text(
@@ -135,11 +165,15 @@ Allowed result:
             if value._name != "res.users":
                 raise UserError(_("Python code result must be res.users, ids list, or id."))
             return value.ids
+        if isinstance(value, bool):
+            raise UserError(_("Python code result must be user id(s) or res.users; boolean is not allowed."))
         if isinstance(value, int):
             return [value]
         if isinstance(value, (list, tuple, set)):
             user_ids = []
             for item in value:
+                if isinstance(item, bool):
+                    raise UserError(_("Python code result list cannot contain boolean values."))
                 if isinstance(item, int):
                     user_ids.append(item)
                 elif isinstance(item, models.Model) and item._name == "res.users":
@@ -185,6 +219,14 @@ Allowed result:
         if self.notify_python_code:
             return self._eval_dynamic_users(record, self.notify_python_code, _("Notify Approver Python Condition"))
         return self.users_to_notify
+
+    def _resolve_request_users(self, record):
+        """Resolve users that should receive actionable approval requests."""
+        self.ensure_one()
+        users = self._resolve_dynamic_approvers(record)
+        if self.notify_python_code:
+            users |= self._eval_dynamic_users(record, self.notify_python_code, _("Notify Approver Python Condition"))
+        return users
 
     @api.model
     def _get_approval_spec(self, model, spec):
@@ -419,7 +461,10 @@ Allowed result:
         self.env.cr.execute('SELECT id FROM studio_approval_rule WHERE id IN %s FOR UPDATE NOWAIT', (all_rule_ids,))
         record = self.env[self.sudo().model_name].browse(res_id)
         record.check_access('write')
-        if not rule_sudo.can_validate:
+        can_validate = rule_sudo.can_validate
+        if not can_validate and (rule_sudo.python_code or rule_sudo.notify_python_code):
+            can_validate = self.env.user in rule_sudo._resolve_request_users(record)
+        if not can_validate:
             raise UserError(_('You can not approve this rule.'))
 
         existing_entry = rule_sudo.env['studio.approval.entry'].search([
@@ -452,7 +497,10 @@ Allowed result:
         if not self.env.context.get('prevent_approval_request_unlink'):
             rule_sudo._unlink_request(res_id)
 
-        if approved and rule_sudo.notification_order != '9':
+        # Keep approvals strictly step-by-step by default: one click approves
+        # only the current rule. Auto-chaining to higher levels can be enabled
+        # explicitly through context when needed.
+        if approved and rule_sudo.notification_order != '9' and self.env.context.get('allow_auto_chain_approval'):
             same_level_rules = []
             higher_level_rules = []
             for rule in rule_sudo.search_read([
@@ -494,14 +542,20 @@ Allowed result:
             return False
 
         record = self.env[rule_sudo.model_name].browse(res_id)
-        users = rule_sudo._resolve_dynamic_approvers(record)
+        if not rule_sudo._match_rule_with_python(record, rule_sudo.domain, rule_sudo.python_code):
+            return False
+
+        users = rule_sudo._resolve_request_users(record)
         if not users:
             return False
 
-        requests = self.env['studio.approval.request'].sudo().search(
-            [('rule_id', '=', self.id), ('res_id', '=', res_id)])
+        requests = self.env['studio.approval.request'].sudo().search([
+            ('rule_id', '=', self.id),
+            ('res_id', '=', res_id),
+        ])
         if requests:
             return False
+
         if self.notification_order != '1':
             entry_sudo = self.env["studio.approval.entry"].sudo()
             for approval_rule in rule_sudo.search([
@@ -522,6 +576,18 @@ Allowed result:
                 ])
                 if not existing_entry or not existing_entry.approved:
                     return False
+
+        # `super()` relies on `approver_ids` to build approval requests. For
+        # dynamic routing we temporarily project computed users to that field,
+        # then restore the original configuration.
+        original_approver_ids = rule_sudo.approver_ids.ids
+        computed_approver_ids = users.ids
+        if set(computed_approver_ids) != set(original_approver_ids):
+            rule_sudo.write({'approver_ids': [(6, 0, computed_approver_ids)]})
+            try:
+                return super()._create_request(res_id)
+            finally:
+                rule_sudo.write({'approver_ids': [(6, 0, original_approver_ids)]})
 
         return super()._create_request(res_id)
 

@@ -6,16 +6,16 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='domain']" position="after">
                 <separator string="Approver Python Routing"/>
-                <group col="1">
-                    <field name="approver_python_code_guide" widget="text" readonly="1" nolabel="1" class="text-muted"/>
-                    <field name="approver_python_examples_guide" widget="text" readonly="1" nolabel="1" class="text-muted"/>
-                    <field name="python_code" widget="text" placeholder="result = record.user_id"/>
+                <group col="1" colspan="2">
+                    <field name="approver_python_code_guide" widget="text" readonly="1" nolabel="1" class="text-muted" colspan="2"/>
+                    <field name="approver_python_examples_guide" widget="text" readonly="1" nolabel="1" class="text-muted" colspan="2"/>
+                    <field name="python_code" widget="text" placeholder="result = record.user_id" colspan="2"/>
                 </group>
                 <separator string="Notify Python Routing"/>
-                <group col="1">
-                    <field name="notify_python_code_guide" widget="text" readonly="1" nolabel="1" class="text-muted"/>
-                    <field name="notify_python_examples_guide" widget="text" readonly="1" nolabel="1" class="text-muted"/>
-                    <field name="notify_python_code" widget="text" placeholder="result = record.team_id.member_ids"/>
+                <group col="1" colspan="2">
+                    <field name="notify_python_code_guide" widget="text" readonly="1" nolabel="1" class="text-muted" colspan="2"/>
+                    <field name="notify_python_examples_guide" widget="text" readonly="1" nolabel="1" class="text-muted" colspan="2"/>
+                    <field name="notify_python_code" widget="text" placeholder="result = record.team_id.member_ids" colspan="2"/>
                 </group>
             </xpath>
         </field>
