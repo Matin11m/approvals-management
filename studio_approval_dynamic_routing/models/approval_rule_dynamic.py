@@ -190,54 +190,12 @@ Allowed result:
             return self._eval_dynamic_users(record, self.notify_python_code, _("Notify Approver Python Condition"))
         return self.users_to_notify
 
-    def _get_dynamic_group_field(self):
-        """Return group-approval field metadata when available on rule model."""
+    def _resolve_request_users(self, record):
+        """Resolve users that should receive actionable approval requests."""
         self.ensure_one()
-        preferred_names = ("approval_group_id", "approver_group_id", "group_id", "group_ids")
-        fields_map = self._fields
-
-        for field_name in preferred_names:
-            field = fields_map.get(field_name)
-            if field and getattr(field, "comodel_name", None) == "res.groups":
-                return field_name, field
-
-        for field_name, field in fields_map.items():
-            if getattr(field, "comodel_name", None) != "res.groups":
-                continue
-            if field.type not in ("many2one", "many2many"):
-                continue
-            return field_name, field
-        return None, None
-
-    def _sync_dynamic_approvers_and_group(self, record):
-        """Populate approver/group fields from python routing or raise explicit errors."""
-        self.ensure_one()
-        if not self.python_code:
-            return self.approver_ids
-
-        users = self._eval_dynamic_users(record, self.python_code, _("Approver Python Condition"))
-        if not users:
-            raise UserError(_("Approver Python code did not resolve any users."))
-
-        self.write({"approver_ids": [(6, 0, users.ids)]})
-
-        group_field_name, group_field = self._get_dynamic_group_field()
-        if not group_field:
-            raise UserError(_("No group approval field was found on this rule to sync dynamic approvers."))
-
-        user_group_field = "groups_id" if "groups_id" in users._fields else "group_ids"
-        candidate_groups = users.mapped(user_group_field)
-        if not candidate_groups:
-            raise UserError(_("Dynamic approvers do not belong to any group to fill Group Approval."))
-
-        group_field_type = group_field.type
-        if group_field_type == "many2one":
-            self.write({group_field_name: candidate_groups[0].id})
-        elif group_field_type == "many2many":
-            self.write({group_field_name: [(6, 0, candidate_groups.ids)]})
-        else:
-            raise UserError(_("Unsupported Group Approval field type for dynamic sync."))
-
+        users = self._resolve_dynamic_approvers(record)
+        if self.notify_python_code:
+            users |= self._eval_dynamic_users(record, self.notify_python_code, _("Notify Approver Python Condition"))
         return users
 
     @api.model
@@ -473,7 +431,10 @@ Allowed result:
         self.env.cr.execute('SELECT id FROM studio_approval_rule WHERE id IN %s FOR UPDATE NOWAIT', (all_rule_ids,))
         record = self.env[self.sudo().model_name].browse(res_id)
         record.check_access('write')
-        if not rule_sudo.can_validate:
+        can_validate = rule_sudo.can_validate
+        if not can_validate and (rule_sudo.python_code or rule_sudo.notify_python_code):
+            can_validate = self.env.user in rule_sudo._resolve_request_users(record)
+        if not can_validate:
             raise UserError(_('You can not approve this rule.'))
 
         existing_entry = rule_sudo.env['studio.approval.entry'].search([
@@ -551,15 +512,7 @@ Allowed result:
         if not rule_sudo._match_rule_with_python(record, rule_sudo.domain, rule_sudo.python_code):
             return False
 
-        users = rule_sudo._sync_dynamic_approvers_and_group(record)
-        # When dynamic notify code is configured, those users should also receive
-        # approval requests early in the process so they can act before completion.
-        if rule_sudo.notify_python_code:
-            users |= rule_sudo._eval_dynamic_users(
-                record,
-                rule_sudo.notify_python_code,
-                _("Notify Approver Python Condition"),
-            )
+        users = rule_sudo._resolve_request_users(record)
         if not users:
             return False
 
